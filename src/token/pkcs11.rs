@@ -1,12 +1,14 @@
 use crate::crypto::{Algorithm, certificate};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use cryptoki::{
-    context::Pkcs11,
+    context::{Function, Pkcs11},
+    error::{Error as Pkcs11Error, RvError},
     mechanism::{Mechanism, MechanismType},
-    object::{Attribute, AttributeType, ObjectClass},
-    session::UserType,
+    object::{Attribute, AttributeType, ObjectClass, ObjectHandle},
+    session::{Session, UserType},
     types::AuthPin,
 };
+use rsa::{BigUint, RsaPublicKey};
 use serde_json::{Value, json};
 use sha2::Digest;
 use std::{error::Error, path::Path};
@@ -36,11 +38,33 @@ pub fn open(module: &Path) -> Result<Pkcs11> {
 
 pub fn tokens(ctx: &Pkcs11) -> Result<Value> {
     let mut result = vec![];
-    for slot in ctx.get_slots_with_token()? {
-        let info = ctx.get_token_info(slot)?;
+    for (slot, info) in
+        recognized_token_infos(ctx.get_slots_with_token()?, |slot| ctx.get_token_info(slot))?
+    {
         result.push(json!({"slot": slot.id(), "label": info.label(), "manufacturer": info.manufacturer_id(), "model": info.model(), "serial": info.serial_number(), "login_required": info.login_required(), "protected_authentication_path": info.protected_authentication_path(), "user_pin_locked": info.user_pin_locked(), "user_pin_final_try": info.user_pin_final_try(), "user_pin_count_low": info.user_pin_count_low()}));
     }
     Ok(Value::Array(result))
+}
+
+fn recognized_token_infos<Slot: Copy, Info>(
+    slots: impl IntoIterator<Item = Slot>,
+    mut get_info: impl FnMut(Slot) -> std::result::Result<Info, Pkcs11Error>,
+) -> Result<Vec<(Slot, Info)>> {
+    let mut recognized = Vec::new();
+    for slot in slots {
+        match get_info(slot) {
+            Ok(info) => recognized.push((slot, info)),
+            Err(Pkcs11Error::Pkcs11(
+                RvError::TokenNotRecognized
+                | RvError::TokenNotPresent
+                | RvError::DeviceRemoved
+                | RvError::SlotIdInvalid,
+                Function::GetTokenInfo,
+            )) => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Ok(recognized)
 }
 
 pub fn signing_mechanisms(ctx: &Pkcs11, slot_id: u64) -> Result<Value> {
@@ -88,13 +112,17 @@ pub fn ensure_signing_supported(ctx: &Pkcs11, slot_id: u64, algorithm: Algorithm
 
 // DER DigestInfo is signed with CKM_RSA_PKCS when the token does not offer a
 // combined hash-and-sign mechanism. The token still performs the private-key step.
-fn digest_info(data: &[u8], algorithm: Algorithm) -> Vec<u8> {
-    let digest = match algorithm {
+fn hash_data(data: &[u8], algorithm: Algorithm) -> Vec<u8> {
+    match algorithm {
         Algorithm::Sha1Rsa => sha1::Sha1::digest(data).to_vec(),
         Algorithm::Sha256Rsa => sha2::Sha256::digest(data).to_vec(),
         Algorithm::Sha384Rsa => sha2::Sha384::digest(data).to_vec(),
         Algorithm::Sha512Rsa => sha2::Sha512::digest(data).to_vec(),
-    };
+    }
+}
+
+fn digest_info(data: &[u8], algorithm: Algorithm) -> Vec<u8> {
+    let digest = hash_data(data, algorithm);
     digest_info_from_digest(&digest, algorithm).expect("hash output has the selected digest length")
 }
 
@@ -158,6 +186,7 @@ pub fn sign_digest(
     if summary["currently_valid"].as_bool() != Some(true) {
         return Err("selected certificate is outside its validity period".into());
     }
+    certificate::rsa_public_key(&der)?;
     let slot = find_slot(ctx, slot_id)?;
     let info = ctx.get_token_info(slot)?;
     if info.user_pin_locked() {
@@ -179,25 +208,90 @@ pub fn sign_digest(
     if info.login_required() {
         session.login(UserType::User, pin.as_ref())?;
     }
-    let outcome = (|| -> Result<Vec<u8>> {
-        let keys = session.find_objects(&[
-            Attribute::Class(ObjectClass::PRIVATE_KEY),
-            Attribute::Id(id.to_vec()),
-        ])?;
-        if keys.len() != 1 {
-            return Err("key ID must identify exactly one private key".into());
-        }
-        Ok(session.sign(&Mechanism::RsaPkcs, keys[0], &encoded)?)
-    })();
-    let logout = if info.login_required() {
-        session.logout()
-    } else {
-        Ok(())
-    };
-    let signature = outcome?;
-    logout?;
+    let signature = with_logout(
+        || -> Result<Vec<u8>> {
+            let keys = session.find_objects(&[
+                Attribute::Class(ObjectClass::PRIVATE_KEY),
+                Attribute::Id(id.to_vec()),
+            ])?;
+            if keys.len() != 1 {
+                return Err("key ID must identify exactly one private key".into());
+            }
+            Ok(session.sign(&Mechanism::RsaPkcs, keys[0], &encoded)?)
+        },
+        || {
+            if info.login_required() {
+                session.logout()?;
+            }
+            Ok(())
+        },
+    )?;
     certificate::verify_rsa_digest(&der, digest, &signature, algorithm)?;
     Ok(signature)
+}
+
+fn with_logout<T>(
+    operation: impl FnOnce() -> Result<T>,
+    logout: impl FnOnce() -> Result<()>,
+) -> Result<T> {
+    let outcome = operation();
+    let cleanup = logout();
+    let value = outcome?;
+    cleanup?;
+    Ok(value)
+}
+
+fn public_key_from_attributes(attributes: Vec<Attribute>) -> Result<RsaPublicKey> {
+    let mut modulus = None;
+    let mut exponent = None;
+    for attribute in attributes {
+        match attribute {
+            Attribute::Modulus(value) => modulus = Some(value),
+            Attribute::PublicExponent(value) => exponent = Some(value),
+            _ => {}
+        }
+    }
+    Ok(RsaPublicKey::new(
+        BigUint::from_bytes_be(&modulus.ok_or("RSA modulus is unavailable")?),
+        BigUint::from_bytes_be(&exponent.ok_or("RSA public exponent is unavailable")?),
+    )?)
+}
+
+fn verification_key(
+    session: &Session,
+    id: &[u8],
+    private_key: ObjectHandle,
+) -> Result<RsaPublicKey> {
+    let certificates = session.find_objects(&[
+        Attribute::Class(ObjectClass::CERTIFICATE),
+        Attribute::Id(id.to_vec()),
+    ])?;
+    if certificates.len() > 1 {
+        return Err("key ID must identify at most one certificate".into());
+    }
+    if let Some(certificate) = certificates.first() {
+        for attribute in session.get_attributes(*certificate, &[AttributeType::Value])? {
+            if let Attribute::Value(der) = attribute {
+                if certificate::summary(&der)?["currently_valid"].as_bool() != Some(true) {
+                    return Err("selected certificate is outside its validity period".into());
+                }
+                return certificate::rsa_public_key(&der);
+            }
+        }
+        return Err("certificate DER is unavailable".into());
+    }
+    let public_keys = session.find_objects(&[
+        Attribute::Class(ObjectClass::PUBLIC_KEY),
+        Attribute::Id(id.to_vec()),
+    ])?;
+    if public_keys.len() > 1 {
+        return Err("key ID must identify at most one public key".into());
+    }
+    let public_key = public_keys.first().copied().unwrap_or(private_key);
+    public_key_from_attributes(session.get_attributes(
+        public_key,
+        &[AttributeType::Modulus, AttributeType::PublicExponent],
+    )?)
 }
 
 fn find_slot(ctx: &Pkcs11, slot_id: u64) -> Result<cryptoki::slot::Slot> {
@@ -289,35 +383,58 @@ pub fn sign_many(
     }
     let slot = find_slot(ctx, slot_id)?;
     let host_hash = signature_plan(ctx, slot, algorithm)?;
+    let info = ctx.get_token_info(slot)?;
+    if info.user_pin_locked() {
+        return Err(AuthenticationError::PinLocked.into());
+    }
     let session = ctx.open_ro_session(slot)?;
-    session.login(UserType::User, Some(&pin))?;
-    let keys = session.find_objects(&[
-        Attribute::Class(ObjectClass::PRIVATE_KEY),
-        Attribute::Id(id.to_vec()),
-    ])?;
-    if keys.len() != 1 {
-        return Err("key ID must identify exactly one private key".into());
+    if info.login_required() {
+        session.login(UserType::User, Some(&pin))?;
     }
-    let mechanism = if host_hash {
-        Mechanism::RsaPkcs
-    } else {
-        match algorithm {
-            Algorithm::Sha1Rsa => Mechanism::Sha1RsaPkcs,
-            Algorithm::Sha256Rsa => Mechanism::Sha256RsaPkcs,
-            Algorithm::Sha384Rsa => Mechanism::Sha384RsaPkcs,
-            Algorithm::Sha512Rsa => Mechanism::Sha512RsaPkcs,
-        }
-    };
-    let mut signatures = Vec::with_capacity(data.len());
-    for item in data {
-        if host_hash {
-            signatures.push(session.sign(&mechanism, keys[0], &digest_info(item, algorithm))?);
-        } else {
-            signatures.push(session.sign(&mechanism, keys[0], item)?);
-        }
-    }
-    session.logout()?;
-    Ok(signatures)
+    with_logout(
+        || {
+            let keys = session.find_objects(&[
+                Attribute::Class(ObjectClass::PRIVATE_KEY),
+                Attribute::Id(id.to_vec()),
+            ])?;
+            if keys.len() != 1 {
+                return Err("key ID must identify exactly one private key".into());
+            }
+            let public_key = verification_key(&session, id, keys[0])?;
+            let mechanism = if host_hash {
+                Mechanism::RsaPkcs
+            } else {
+                match algorithm {
+                    Algorithm::Sha1Rsa => Mechanism::Sha1RsaPkcs,
+                    Algorithm::Sha256Rsa => Mechanism::Sha256RsaPkcs,
+                    Algorithm::Sha384Rsa => Mechanism::Sha384RsaPkcs,
+                    Algorithm::Sha512Rsa => Mechanism::Sha512RsaPkcs,
+                }
+            };
+            let mut signatures = Vec::with_capacity(data.len());
+            for item in data {
+                let signature = if host_hash {
+                    session.sign(&mechanism, keys[0], &digest_info(item, algorithm))?
+                } else {
+                    session.sign(&mechanism, keys[0], item)?
+                };
+                certificate::verify_rsa_digest_with_key(
+                    &public_key,
+                    &hash_data(item, algorithm),
+                    &signature,
+                    algorithm,
+                )?;
+                signatures.push(signature);
+            }
+            Ok(signatures)
+        },
+        || {
+            if info.login_required() {
+                session.logout()?;
+            }
+            Ok(())
+        },
+    )
 }
 
 pub fn encode_hex(data: &[u8]) -> String {
@@ -345,7 +462,137 @@ mod tests {
         pkcs1v15::{Pkcs1v15Sign, Signature, VerifyingKey},
         pkcs8::DecodePrivateKey,
         signature::Verifier,
+        traits::PublicKeyParts,
     };
+    use std::cell::Cell;
+
+    #[test]
+    fn token_inventory_continues_after_unrecognized_or_removed_tokens() {
+        let visited = Cell::new(0);
+        let tokens = recognized_token_infos([1, 2, 3, 4, 5, 6], |slot| {
+            visited.set(visited.get() + 1);
+            match slot {
+                1 => Err(Pkcs11Error::Pkcs11(
+                    RvError::TokenNotRecognized,
+                    Function::GetTokenInfo,
+                )),
+                3 => Err(Pkcs11Error::Pkcs11(
+                    RvError::DeviceRemoved,
+                    Function::GetTokenInfo,
+                )),
+                4 => Err(Pkcs11Error::Pkcs11(
+                    RvError::TokenNotPresent,
+                    Function::GetTokenInfo,
+                )),
+                5 => Err(Pkcs11Error::Pkcs11(
+                    RvError::SlotIdInvalid,
+                    Function::GetTokenInfo,
+                )),
+                _ => Ok(slot * 10),
+            }
+        })
+        .unwrap();
+        assert_eq!(visited.get(), 6);
+        assert_eq!(tokens, vec![(2, 20), (6, 60)]);
+    }
+
+    #[test]
+    fn token_inventory_preserves_driver_and_authentication_failures() {
+        for error in [
+            RvError::DeviceError,
+            RvError::GeneralError,
+            RvError::PinIncorrect,
+        ] {
+            let result = recognized_token_infos([1], |_| -> std::result::Result<(), Pkcs11Error> {
+                Err(Pkcs11Error::Pkcs11(error, Function::GetTokenInfo))
+            });
+            assert!(result.is_err());
+        }
+        let wrong_function =
+            recognized_token_infos([1], |_| -> std::result::Result<(), Pkcs11Error> {
+                Err(Pkcs11Error::Pkcs11(
+                    RvError::TokenNotPresent,
+                    Function::Login,
+                ))
+            });
+        assert!(wrong_function.is_err());
+    }
+
+    #[test]
+    fn unrecognized_tokens_never_become_inventory_entries() {
+        let result = recognized_token_infos([1, 2], |_| -> std::result::Result<(), Pkcs11Error> {
+            Err(Pkcs11Error::Pkcs11(
+                RvError::TokenNotRecognized,
+                Function::GetTokenInfo,
+            ))
+        })
+        .unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn signing_cleanup_runs_once_on_success_and_failure() {
+        for fail in [false, true] {
+            let operations = Cell::new(0);
+            let logouts = Cell::new(0);
+            let result = with_logout(
+                || {
+                    operations.set(operations.get() + 1);
+                    if fail {
+                        Err("signing failed".into())
+                    } else {
+                        Ok(vec![1])
+                    }
+                },
+                || {
+                    logouts.set(logouts.get() + 1);
+                    Ok(())
+                },
+            );
+            assert_eq!(operations.get(), 1);
+            assert_eq!(logouts.get(), 1);
+            assert_eq!(result.is_err(), fail);
+        }
+    }
+
+    #[test]
+    fn cleanup_failure_never_returns_a_signature_and_preserves_operation_errors() {
+        let result = with_logout(|| Ok(vec![1]), || Err("logout failed".into()));
+        assert_eq!(result.unwrap_err().to_string(), "logout failed");
+        let result: Result<Vec<u8>> = with_logout(
+            || Err("signing failed".into()),
+            || Err("logout failed".into()),
+        );
+        assert_eq!(result.unwrap_err().to_string(), "signing failed");
+    }
+
+    #[test]
+    fn public_key_attributes_require_complete_valid_rsa_parameters() {
+        let private = RsaPrivateKey::from_pkcs8_pem(include_str!(
+            "../../tests/fixtures/ctsign/private-key.fixture"
+        ))
+        .unwrap();
+        let public = RsaPublicKey::from(&private);
+        let attributes = vec![
+            Attribute::Modulus(public.n().to_bytes_be()),
+            Attribute::PublicExponent(public.e().to_bytes_be()),
+        ];
+        assert_eq!(public_key_from_attributes(attributes).unwrap(), public);
+        assert!(
+            public_key_from_attributes(vec![Attribute::Modulus(public.n().to_bytes_be())]).is_err()
+        );
+        assert!(
+            public_key_from_attributes(vec![Attribute::PublicExponent(public.e().to_bytes_be())])
+                .is_err()
+        );
+        assert!(
+            public_key_from_attributes(vec![
+                Attribute::Modulus(vec![0]),
+                Attribute::PublicExponent(vec![0])
+            ])
+            .is_err()
+        );
+    }
 
     #[test]
     fn raw_rsa_digest_info_matches_standard_hash_and_sign_for_all_hashes() {

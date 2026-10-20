@@ -102,6 +102,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn downloaded_provider_modules_have_explicit_catalog_entries() {
+        let names = module_names()["windows_module_names"].as_array().unwrap();
+        for name in [
+            "fptca_v3.dll",
+            "fptca_v4.dll",
+            "fptca_v464.dll",
+            "hiloca_csp11_v1.dll",
+            "trustca_csp11_v1.dll",
+            "mfca_v1.dll",
+            "bit4ipki.dll",
+            "bit4npki.dll",
+            "bit4opki.dll",
+            "bit4xpki.dll",
+            "dkck201.dll",
+        ] {
+            assert!(names.iter().any(|value| value.as_str() == Some(name)));
+        }
+    }
+
+    #[test]
     fn observed_vendor_bundle_path_is_in_the_catalog() {
         assert!(known_module_paths().any(|path| {
             path == "/Applications/VNPT-CA Token Manager.app/Contents/Resources/libvnptca_p11_v8.dylib"
@@ -120,9 +140,15 @@ mod tests {
             "one-ca_v1.dll",
             "fptca_v3.dll",
             "fptca_v4.dll",
+            "fptca_v464.dll",
+            "hiloca_csp11_v1.dll",
+            "trustca_csp11_v1.dll",
+            "mfca_v1.dll",
+            "nca_v5.1.dll",
+            "fca_v1.dll",
         ] {
             if cfg!(windows) {
-                assert!(candidate_name(name));
+                assert!(candidate_name(name), "missing middleware candidate: {name}");
             }
         }
         assert!(!candidate_name("some-unrelated.dll"));

@@ -1,5 +1,5 @@
 {
-  "meaning": "Windows PKCS#11 middleware search names from the legacy catalog and observed vendor packages. A catalog entry does not establish hardware signing or macOS/Linux support.",
+  "meaning": "Windows PKCS#11 middleware search names from the legacy catalog, observed vendor packages and explicitly qualified integration references. A catalog entry does not establish issuer approval, hardware signing or macOS/Linux support.",
   "windows_module_names": [
     "vdctdcsp11.dll",
     "vnpt-ca_csp11.dll",
@@ -19,6 +19,14 @@
     "fpt-ca-stx.dll",
     "fptca_v3.dll",
     "fptca_v4.dll",
+    "fptca_v464.dll",
+    "hiloca_csp11_v1.dll",
+    "trustca_csp11_v1.dll",
+    "bit4ipki.dll",
+    "bit4npki.dll",
+    "bit4opki.dll",
+    "bit4xpki.dll",
+    "dkck201.dll",
     "viettel-ca_v1.dll",
     "viettel-ca_v2.dll",
     "viettel-ca_v3.dll",
@@ -48,10 +56,12 @@
     "vnptca_p11_v10.dll",
     "nca_v4.dll",
     "nca_v5.dll",
+    "nca_v5.1.dll",
     "nca_v6.dll",
     "nca_v7.dll",
     "nca_v8.dll",
     "nca_v9.dll",
+    "fca_v1.dll",
     "eTPKCS11.dll",
     "BkavCAv2S.dll",
     "BkavCAv2T.dll",
@@ -60,6 +70,7 @@
     "ica_csp11_v1.dll",
     "LCS-CAv2.0.dll",
     "misaca_csp11_v2.dll",
+    "mfca_v1.dll",
     "ncca_csp11_v1.dll",
     "one-ca_v1.dll",
     "Vina-CAv6.dll",
@@ -68,6 +79,26 @@
   ],
   "macos_linux_module_paths": [
     "/Applications/VNPT-CA Token Manager.app/Contents/Resources/libvnptca_p11_v8.dylib"
+  ],
+  "observed_vendor_package_references": [
+    {
+      "module_name": "IntrustCA_PKCS11_v1.dll",
+      "provider": "IntrustCA",
+      "backend_scope": "remote_signing_facade",
+      "source": "https://intrustca.vn/ho-tro/phan-mem-ho-tro",
+      "package_sha256": "a6eb115016e7d86e123b6c269c62cd80f658b38c182bf3d5aef5d490c30e58db",
+      "observed_module_sha256": {
+        "x86": "c169b2ebbce9c944f940cdc31aa777bd26a8573a29da74942e484518e34827f0",
+        "x86_64": "3f17102062eb5d0260fb80bec5bd57829407c4e036c9e2deef170b89a9daf30a"
+      },
+      "qualification": "Static evidence from the issuer-published VCSP package; no installation, account connection, PIN, signing or physical USB compatibility was tested. This reference is not runtime package approval."
+    },
+    {
+      "module_name": "mfca_v1.dll",
+      "provider": "MobiFone CA",
+      "source": "https://mobica.vn/wp-content/uploads/2024/11/huong-dan-cai-dat-chu-ky-so-bang-token-1.pdf",
+      "qualification": "Observed in the offline package linked by the issuer installation guide; x86 and x86_64 initialization succeeded on the current host. This does not establish hardware signing or clean-machine compatibility."
+    }
   ],
   "hardware_verified": []
 }

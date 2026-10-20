@@ -131,7 +131,11 @@ fn all_observed_commands_validate_required_string_fields_and_never_fake_success(
         assert!(protocol::validate(&input).is_ok(), "{}", command.code);
         assert_eq!(
             protocol::handle(&serde_json::to_vec(&input).unwrap())["SUCCESS"],
-            "FALSE"
+            if command.code == "CHECK_VERSION" {
+                "TRUE"
+            } else {
+                "FALSE"
+            }
         );
         for name in &command.required_strings {
             for invalid in [
@@ -199,6 +203,44 @@ fn multiple_payment_signing_requires_both_paths_only_for_subcode_05() {
     assert!(protocol::validate(&input).is_err());
     input["BANK_SIGN_PATH"] = json!("/bank");
     assert!(protocol::validate(&input).is_ok());
+}
+
+#[test]
+fn version_check_matches_the_original_no_update_reply_without_a_backend() {
+    for code in ["CHECK_VERSION", "check_version"] {
+        let bytes = json!({"CODE": code, "ROOT_URL": "https://thuedientu.gdt.gov.vn"}).to_string();
+        let expected = json!({
+            "CODE": code, "SUCCESS": "TRUE", "RESULT": "SUCC", "IS_UPDATE": "N"
+        });
+        let handled = protocol::handle_with(bytes.as_bytes(), "", None);
+        assert_eq!(handled.reply, expected);
+        assert_eq!(handled.action, code);
+        assert!(handled.message.is_empty());
+        assert!(!handled.signing);
+        assert!(handled.certificate.is_empty() && handled.signer.is_empty());
+        assert_eq!(protocol::summary(bytes.as_bytes(), false).1, "");
+
+        let mut input = vec![];
+        native::write_frame(&mut input, bytes.as_bytes()).unwrap();
+        let mut output = vec![];
+        native::serve(&mut Cursor::new(input), &mut output).unwrap();
+        let reply = native::read_frame(&mut Cursor::new(output))
+            .unwrap()
+            .unwrap();
+        assert_eq!(serde_json::from_slice::<Value>(&reply).unwrap(), expected);
+    }
+    for input in [
+        json!({"CODE": "CHECK_VERSION"}),
+        json!({"CODE": "CHECK_VERSION", "ROOT_URL": null}),
+        json!({"CODE": "CHECK_VERSION", "ROOT_URL": 1}),
+    ] {
+        let handled = protocol::handle_with(input.to_string().as_bytes(), "", None);
+        assert_eq!(
+            handled.reply,
+            json!({"CODE": "CHECK_VERSION", "SUCCESS": "FALSE"})
+        );
+        assert!(!handled.message.is_empty());
+    }
 }
 
 #[test]

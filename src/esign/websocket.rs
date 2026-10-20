@@ -153,7 +153,7 @@ pub fn serve(listener: TcpListener, origins: Vec<String>) -> io::Result<()> {
 
 // Polls a nonblocking listener so the desktop can stop the service without
 // closing the process. Accepted connections are switched back to blocking mode.
-// Without a backend every command, including signing, answers FALSE.
+// Without a backend signing commands answer FALSE; version checks still work.
 pub fn serve_until(
     listener: TcpListener,
     origins: Vec<String>,

@@ -313,6 +313,13 @@ fn other_commands_and_invalid_requests_do_not_reach_the_backend() {
     let backend = TestBackend::new(Mode::Approve);
     let (mut service, address) = start(Some(backend.clone()));
     let serial = backend.sample.serial().to_owned();
+    assert_eq!(
+        send(
+            address,
+            &json!({"CODE": "CHECK_VERSION", "ROOT_URL": ORIGIN})
+        ),
+        json!({"CODE": "CHECK_VERSION", "SUCCESS": "TRUE", "RESULT": "SUCC", "IS_UPDATE": "N"})
+    );
     assert_false(&send(address, &json!({"CODE": "CER_002"})), "CER_002");
     let mut ntdt = request("NTDT_CER_001", &STANDARD.encode(b"data"), &serial);
     ntdt["GDT_SIGN_PATH"] = json!("");
@@ -358,7 +365,12 @@ fn capabilities_and_activity_summary_describe_the_bridge() {
     let capabilities = protocol::capabilities();
     assert_eq!(
         capabilities["legacy_commands_implemented"],
-        json!(["CER_001", "ONLINE_XML_CER_001", "ONLINE_SUBMIT_SIGNING_001"])
+        json!([
+            "CHECK_VERSION",
+            "CER_001",
+            "ONLINE_XML_CER_001",
+            "ONLINE_SUBMIT_SIGNING_001"
+        ])
     );
     assert_eq!(capabilities["real_portal_verified"], false);
     let serial = SampleBackend::new().unwrap().serial().to_owned();

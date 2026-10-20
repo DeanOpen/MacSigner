@@ -84,8 +84,8 @@ pub fn validate(input: &Value) -> Result<&'static Command, String> {
     Ok(command)
 }
 
-/// Answers a request without a signing backend: every command, including the
-/// signing ones, fails explicitly.
+/// Answers a request without a signing backend. Version checks work without
+/// a backend; signing commands fail explicitly.
 pub fn handle(bytes: &[u8]) -> Value {
     handle_with(bytes, "", None).reply
 }
@@ -105,8 +105,8 @@ pub struct Handled {
 }
 
 /// Routes CER_001, ONLINE_XML_CER_001 and ONLINE_SUBMIT_SIGNING_001 to
-/// `backend` (see `bridge`); everything else, and every request when there is
-/// no backend, answers FALSE.
+/// `backend` (see `bridge`). CHECK_VERSION is handled locally; unsupported
+/// commands and signing requests without a backend answer FALSE.
 pub fn handle_with(bytes: &[u8], origin: &str, backend: Option<&dyn bridge::Backend>) -> Handled {
     let (action, reason) = summary(bytes, backend.is_some());
     let failed = |code: &str, message: String, signing: bool| Handled {
@@ -125,6 +125,25 @@ pub fn handle_with(bytes: &[u8], origin: &str, backend: Option<&dyn bridge::Back
     if let Err(e) = validate(&input) {
         eprintln!("request rejected: {e}");
         return failed(code, reason, false);
+    }
+    if code.eq_ignore_ascii_case("CHECK_VERSION") {
+        // Match the original plugin's no-update reply. MacSigner has its own
+        // updater; ROOT_URL must never trigger the Java plugin's installer.
+        return Handled {
+            reply: response(
+                code,
+                true,
+                json!({"RESULT": "SUCC", "IS_UPDATE": "N"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+            action,
+            message: String::new(),
+            signing: false,
+            certificate: String::new(),
+            signer: String::new(),
+        };
     }
     let Some(backend) = backend.filter(|_| bridge::is_signing_command(code)) else {
         eprintln!("legacy operation is not available: {code}");
@@ -151,7 +170,7 @@ pub fn handle_with(bytes: &[u8], origin: &str, backend: Option<&dyn bridge::Back
     }
 }
 
-/// CODE (with SUB_CODE) of a request and why it fails before reaching a
+/// CODE (with SUB_CODE) of a request and any failure before reaching a
 /// signing backend, for the activity log. Only these names are kept; the
 /// payload never is. `with_backend` says whether a signing backend is attached.
 pub fn summary(bytes: &[u8], with_backend: bool) -> (String, String) {
@@ -168,7 +187,9 @@ pub fn summary(bytes: &[u8], with_backend: bool) -> (String, String) {
         Ok(_) if bridge::is_signing_command(code) && !with_backend => {
             "Lệnh ký chỉ chạy khi dịch vụ ESIGN do ứng dụng MacSigner chính (app/) mở, để người dùng chọn chứng thư và xác nhận".into()
         }
-        Ok(_) if bridge::is_signing_command(code) => String::new(),
+        Ok(_) if bridge::is_signing_command(code) || code.eq_ignore_ascii_case("CHECK_VERSION") => {
+            String::new()
+        }
         Ok(_) => "Lệnh chưa được hỗ trợ trong bản này".into(),
     };
     (action, reason)
@@ -183,7 +204,8 @@ pub fn capabilities() -> Value {
         "rsa_pkcs1_v1_5_hashes": ["sha1-explicit", "sha256", "sha384", "sha512"],
         "rsa_pkcs_fallback": "host hashes and encodes DER DigestInfo; token performs private-key operation",
         "legacy_cli_prepared_byte_commands": bridge::SIGNING_COMMANDS,
-        "legacy_commands_implemented": bridge::SIGNING_COMMANDS,
+        "legacy_commands_implemented": std::iter::once("CHECK_VERSION")
+            .chain(bridge::SIGNING_COMMANDS.iter().copied()).collect::<Vec<_>>(),
         // Signing over the bridge needs a backend that asks the user: the desktop
         // app's WebSocket. Native messaging and headless `serve` answer FALSE.
         "legacy_commands_signing_transport": ["websocket-with-desktop-approval"],

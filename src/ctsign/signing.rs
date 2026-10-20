@@ -200,13 +200,8 @@ impl SigningState {
             .lock()
             .map_err(|_| anyhow::anyhow!("Signer lock poisoned"))?;
         for identity in additions {
-            let serial = certificate::normalize_serial(&identity.info.serinumber)?;
-            identities.retain(|i| {
-                certificate::normalize_serial(&i.info.serinumber)
-                    .ok()
-                    .as_ref()
-                    != Some(&serial)
-            });
+            certificate::normalize_serial(&identity.info.serinumber)?;
+            identities.retain(|existing| existing.der() != identity.der());
             identities.push(identity);
         }
         Ok(identities.len())
@@ -246,13 +241,21 @@ impl SigningState {
             for cert in crate::certstore::personal().unwrap_or_default() {
                 if let Ok(identity) = Identity::windows_store(cert)
                     && matches(&identity)
+                    && !identities
+                        .iter()
+                        .any(|existing| existing.der() == identity.der())
                 {
                     identities.push(identity);
-                    break;
                 }
             }
         }
-        match identities.iter().find(|i| matches(i)) {
+        let mut matching = identities.iter().filter(|identity| matches(identity));
+        let identity = matching.next();
+        ensure!(
+            matching.next().is_none(),
+            "Có nhiều chứng thư cùng serial; hãy chỉ nạp chứng thư cần ký trước khi gửi yêu cầu"
+        );
+        match identity {
             Some(identity) => f(identity).map(Some),
             None => Ok(None),
         }
@@ -433,6 +436,7 @@ pub fn load_token(module: &Path, slot_index: usize, pin: Option<&str>) -> Result
         "Token does not support CKM_RSA_PKCS signing required for the original RSA/SHA-256 contract"
     );
     let token_info = pkcs11.get_token_info(slot)?;
+    ensure!(!token_info.user_pin_locked(), "Token PIN bị khóa");
     let login = login_mode(
         token_info.login_required(),
         token_info.protected_authentication_path(),
@@ -569,6 +573,7 @@ pub fn open_token(
         .find(|s| s.id() == slot_id)
         .context("Không thấy token ở khe đã chọn (đã rút token?)")?;
     let info = pkcs11.get_token_info(slot)?;
+    ensure!(!info.user_pin_locked(), "Token PIN bị khóa");
     let login = login_mode(
         info.login_required(),
         info.protected_authentication_path(),
@@ -586,7 +591,11 @@ pub fn open_token(
         Attribute::Class(ObjectClass::CERTIFICATE),
         Attribute::Id(key_id.to_vec()),
     ])?;
-    let cert = certs.first().context("Không thấy chứng thư trên token")?;
+    ensure!(
+        certs.len() == 1,
+        "Khóa phải tương ứng chính xác một chứng thư"
+    );
+    let cert = &certs[0];
     let der = session
         .get_attributes(*cert, &[AttributeType::Value])?
         .into_iter()
@@ -595,6 +604,7 @@ pub fn open_token(
             _ => None,
         })
         .context("Chứng thư không có dữ liệu")?;
+    certificate::public_key(&der)?;
     let keys = session.find_objects(&[
         Attribute::Class(ObjectClass::PRIVATE_KEY),
         Attribute::Id(key_id.to_vec()),
@@ -639,7 +649,51 @@ fn login_mode<'a>(
 
 #[cfg(test)]
 mod tests {
-    use super::{LoginMode, login_mode};
+    use super::{Identity, LoginMode, SigningState, login_mode};
+    use rsa::{RsaPrivateKey, pkcs8::DecodePrivateKey};
+
+    fn software_identity(signature_variant: bool) -> Identity {
+        let mut der = include_bytes!("../../tests/fixtures/ctsign/certificate.der").to_vec();
+        if signature_variant {
+            *der.last_mut().unwrap() ^= 1;
+        }
+        Identity::software(
+            der,
+            RsaPrivateKey::from_pkcs8_pem(include_str!(
+                "../../tests/fixtures/ctsign/private-key.fixture"
+            ))
+            .unwrap(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn distinct_certificates_with_the_same_serial_are_not_replaced() {
+        let state = SigningState::default();
+        let original = software_identity(false);
+        let variant = software_identity(true);
+        assert_eq!(original.info.serinumber, variant.info.serinumber);
+        assert_ne!(original.der(), variant.der());
+        assert_eq!(state.add(vec![original]).unwrap(), 1);
+        assert_eq!(state.add(vec![variant]).unwrap(), 2);
+        assert_eq!(state.add(vec![software_identity(false)]).unwrap(), 2);
+    }
+
+    #[test]
+    fn ambiguous_serial_never_invokes_the_signing_operation() {
+        let state = SigningState::default();
+        let original = software_identity(false);
+        let serial = original.info.serinumber.clone();
+        state.add(vec![original, software_identity(true)]).unwrap();
+        let mut invoked = false;
+        let result = state.with_identity(&format!(" 00{serial} "), |_| {
+            invoked = true;
+            Ok(())
+        });
+        assert!(result.unwrap_err().to_string().contains("cùng serial"));
+        assert!(!invoked);
+        assert!(state.certificate_der(&serial).is_none());
+    }
 
     #[test]
     fn token_login_requires_pin_or_advertised_protected_path() {

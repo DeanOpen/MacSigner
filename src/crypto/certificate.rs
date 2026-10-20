@@ -43,13 +43,22 @@ pub fn verify_rsa_digest(
     signature: &[u8],
     algorithm: super::Algorithm,
 ) -> Result<()> {
+    verify_rsa_digest_with_key(&rsa_public_key(der)?, digest, signature, algorithm)
+}
+
+pub fn verify_rsa_digest_with_key(
+    public_key: &RsaPublicKey,
+    digest: &[u8],
+    signature: &[u8],
+    algorithm: super::Algorithm,
+) -> Result<()> {
     let padding = match algorithm {
         super::Algorithm::Sha1Rsa => rsa::Pkcs1v15Sign::new::<sha1::Sha1>(),
         super::Algorithm::Sha256Rsa => rsa::Pkcs1v15Sign::new::<sha2::Sha256>(),
         super::Algorithm::Sha384Rsa => rsa::Pkcs1v15Sign::new::<sha2::Sha384>(),
         super::Algorithm::Sha512Rsa => rsa::Pkcs1v15Sign::new::<sha2::Sha512>(),
     };
-    rsa_public_key(der)?.verify(padding, digest, signature)?;
+    public_key.verify(padding, digest, signature)?;
     Ok(())
 }
 

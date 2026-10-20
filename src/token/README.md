@@ -48,6 +48,8 @@ Các đường dẫn `esign::certificate`, `esign::online::Algorithm`, `esign::{
 - Đường dẫn bộ kết nối VNPT trong ứng dụng macOS được đưa vào catalog theo vị trí cài đặt quan sát từ gói của hãng. Đã xác nhận tĩnh thư viện chứa cả Intel và ARM64; chưa xác nhận nạp thư viện, nhập PIN hoặc ký trên máy Mac thật.
 - Kiểm chứng thiết bị mới bằng đọc chứng thư không đăng nhập, rồi ký tài liệu thử do người vận hành nhập PIN trực tiếp. Catalog tên driver không chứng minh tương thích phần cứng.
 
+Khi quét một bộ kết nối, `pkcs11::tokens` tiếp tục sau các lỗi `C_GetTokenInfo` chỉ ra khe đã biến mất, token bị rút hoặc không được bộ kết nối nhận diện. Nhờ đó USB của hãng khác không làm bỏ qua các khe còn lại. Chỉ bỏ qua bốn mã `CKR_SLOT_ID_INVALID`, `CKR_DEVICE_REMOVED`, `CKR_TOKEN_NOT_PRESENT`, `CKR_TOKEN_NOT_RECOGNIZED` tại đúng bước đọc thông tin token; các lỗi khác vẫn làm probe báo lỗi. Quét xong với danh sách rỗng không chứng minh đã nhận USB tương ứng.
+
 ## Vòng đời chứng thư
 
 Ba luồng riêng biệt, không dùng chung quyền hoặc coi là một thao tác gia hạn:
@@ -57,6 +59,16 @@ Ba luồng riêng biệt, không dùng chung quyền hoặc coi là một thao t
 - **Gia hạn/cấp lại:** cần adapter theo giao thức chính thức của từng CA, tài khoản/hồ sơ và sự phê duyệt của nhà cung cấp. Chưa có adapter thực hiện trong lớp này. Không suy luận API gia hạn từ API ký PKCS#11; không tự sinh/xóa khóa, ghi đè chứng thư hoặc gửi yêu cầu có phí. Theo hướng dẫn VNPT, chứng thư mới chỉ được cập nhật vào token sau khi thủ tục gia hạn đã hoàn tất và được duyệt: https://www.vnpt-ca.vn/documents/download?fileNameDownload=documents%2F05082019220923.pdf. Khi có SDK/API được xác nhận, đặt adapter trong `token/`, giữ xác thực, retry/idempotency và bước xác nhận thao tác ghi riêng với luồng ký.
 
 `CertificateVersion::validity` hỗ trợ kiểm tra hết hạn/cảnh báo với thời điểm do lớp gọi cung cấp; đây không phải kiểm tra thu hồi hoặc tính tin cậy. API vòng đời chưa được nối vào giao diện hoặc bộ lịch nền; không coi thay đổi core này là tính năng tự gia hạn hoàn chỉnh.
+
+## Kiểm tra kết quả ký
+
+Adapter CTSIGN thay thế backend đã nạp chỉ khi toàn bộ DER chứng thư giống nhau, không coi serial là định danh toàn cục giữa các CA. Hai chứng thư khác nhau có cùng serial vẫn được giữ riêng. Hợp đồng yêu cầu ký hiện chỉ nhận serial, nên khi có nhiều chứng thư đã nạp cùng khớp serial chuẩn hóa, adapter trả lỗi trước khi gọi backend hoặc hộp thoại PIN; không tự chọn chứng thư đầu tiên. Khi chưa nạp chứng thư khớp và tra cứu kho Windows, tất cả kết quả cùng serial được xem xét, loại bản sao DER trước khi kiểm tra mơ hồ. Việc này không tự xác minh chuỗi tin cậy, không giải quyết định danh qua API mới và không chứng minh đã ký trên hai USB thật.
+
+`pkcs11::sign_many` xác minh từng chữ ký RSA trước khi trả về toàn bộ lô. Nếu CKA_ID có chứng thư, chỉ chấp nhận đúng một chứng thư RSA còn hạn; nếu token phần mềm hoặc thiết bị chỉ có khóa, lấy khóa công khai cùng CKA_ID hoặc tham số công khai của khóa bí mật. Thiếu tham số xác minh, trùng đối tượng hoặc chữ ký sai làm hỏng toàn bộ kết quả trả về; thao tác ký đã thực hiện trong thiết bị không thể được hoàn tác.
+
+Sau đăng nhập thành công, cả luồng ký digest và ký hàng loạt đều thử đăng xuất khi thao tác trả lỗi, không tự đăng nhập hoặc ký lại. Không trả chữ ký nếu đăng xuất báo lỗi. Token báo PIN bị khóa bị từ chối trước bước đăng nhập; đây không phải bảo đảm trạng thái thiết bị không thay đổi đồng thời.
+
+Kiểm thử SoftHSM trên Windows dùng kho token phần mềm riêng và PIN thử nghiệm, không nạp bộ kết nối CA hoặc ghi khóa lên USB thật. Bốn thuật toán RSA/hash đi qua API PKCS#11 và được xác minh bằng khóa công khai, gồm cả trường hợp token chưa có chứng thư. Kết quả này không xác nhận mã PIN, firmware, bộ kết nối hoặc chính sách của từng CA.
 
 ## Phạm vi kiểm chứng
 
