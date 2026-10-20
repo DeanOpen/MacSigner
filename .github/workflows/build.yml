@@ -157,10 +157,10 @@ jobs:
         env:
           TARGET: ${{ matrix.target }}
         run: |
-          shopt -s globstar nullglob
+          shopt -s nullglob # macOS runners ship bash 3.2: no globstar
           mkdir -p dist updater
           bundle="$BUNDLE"
-          for f in "$bundle"/**/*.{dmg,msi,deb,rpm,AppImage} "$bundle"/nsis/*.exe; do cp "$f" dist/; done
+          for f in "$bundle"/{dmg/*.dmg,msi/*.msi,deb/*.deb,rpm/*.rpm,appimage/*.AppImage,nsis/*.exe}; do cp "$f" dist/; done
           if [ -n "$VERSION" ]; then
             # Updater bundle + signature, and its entry for latest.json (built in publish).
             updater() { # <platform key> <bundle> [published name]
