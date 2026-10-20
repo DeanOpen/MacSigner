@@ -149,6 +149,11 @@ jobs:
             fi
           done
           if [ -n "${MACSIGNER_NOTARY_PROFILE:-}" ]; then
+            # Tauri notarizes the app but its staple can race Apple's ticket publication; retry.
+            for i in 1 2 3 4 5; do
+              xcrun stapler staple "$app" && break
+              echo "Ticket not available yet, retrying in 20s ($i/5)"; sleep 20
+            done
             xcrun stapler validate "$app"
             spctl --assess --type execute --verbose=2 "$app"
           fi
