@@ -42,7 +42,13 @@
     "shortDescription": "Ký số PDF, ESIGN và CTSIGN",
     "macOS": {
       "hardenedRuntime": true,
-      "entitlements": "../../packaging/macos/Entitlements.plist"
+      "entitlements": "../../packaging/macos/Entitlements.plist",
+      "dmg": {
+        "background": "../../packaging/macos/dmg-background.tiff",
+        "windowSize": { "width": 660, "height": 420 },
+        "appPosition": { "x": 170, "y": 205 },
+        "applicationFolderPosition": { "x": 490, "y": 205 }
+      }
     },
     "icon": [
       "icons/32x32.png",

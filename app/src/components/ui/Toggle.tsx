@@ -13,10 +13,13 @@ export function Toggle({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <Switch aria-label={label} isSelected={isSelected} isDisabled={isDisabled} onChange={onChange}>
-      <Switch.Control>
-        <Switch.Thumb />
-      </Switch.Control>
+    <Switch isSelected={isSelected} isDisabled={isDisabled} onChange={onChange}>
+      {/* Switch.Content is the clickable SwitchButton; Switch itself is only the field. */}
+      <Switch.Content aria-label={label}>
+        <Switch.Control>
+          <Switch.Thumb />
+        </Switch.Control>
+      </Switch.Content>
     </Switch>
   );
 }
