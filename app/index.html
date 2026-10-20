@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>MacSigner</title>
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <style>
+      /* Shell colour before the app paints, so a dark start does not flash white. */
+      html { background: #f4f4f5; }
+      @media (prefers-color-scheme: dark) { html { background: #0b0b0c; } }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

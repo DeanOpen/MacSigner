@@ -1,0 +1,251 @@
+name: Build
+# One job per platform tests the signing core and builds the Tauri app.
+# On main it also bumps the version (Conventional Commits), signs + notarizes macOS,
+# and, once every platform passes, commits + tags vX.Y.Z and publishes a GitHub Release.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump (auto reads Conventional Commits since the last tag)
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+permissions:
+  contents: write
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+jobs:
+  version:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      tag: v${{ steps.bump.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: bump
+        env:
+          BUMP: ${{ inputs.bump || 'auto' }}
+        run: |
+          version="$(bash scripts/bump-version.sh "$BUMP")"
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "::error::Tag v$version already exists"; exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Releasing v$version" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    needs: version
+    if: ${{ !cancelled() && needs.version.result != 'failure' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, target: linux-x86_64 }
+          - { os: ubuntu-24.04-arm, target: linux-aarch64 }
+          # One universal (Intel + Apple Silicon) macOS build on the ARM runner.
+          - { os: macos-15, target: macos-universal, args: --target universal-apple-darwin, bundle: app/src-tauri/target/universal-apple-darwin/release/bundle }
+          - { os: windows-2022, target: windows-x86_64 }
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      BUNDLE: ${{ matrix.bundle || 'app/src-tauri/target/release/bundle' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply version ${{ env.VERSION }}
+        if: env.VERSION != ''
+        shell: bash
+        run: bash scripts/bump-version.sh "$VERSION"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable && corepack prepare pnpm@12.14.0 --activate
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.1
+          components: rustfmt, clippy
+          targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - name: Install Linux libraries and software PKCS#11 token
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev libpcsclite-dev pkg-config file patchelf softhsm2
+          mkdir -p "$RUNNER_TEMP/softhsm-tokens"
+          printf 'directories.tokendir = %s/softhsm-tokens\n' "$RUNNER_TEMP" > "$RUNNER_TEMP/softhsm2.conf"
+          SOFTHSM2_CONF="$RUNNER_TEMP/softhsm2.conf" softhsm2-util --init-token --free --label ESIGN-CI --so-pin 12345678 --pin 123456
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            app/src-tauri -> target
+
+      # Signing core (without the legacy egui UI).
+      - run: cargo fmt --all -- --check
+      - run: cargo test --locked --no-default-features --all-targets
+        env:
+          ESIGN_TEST_SOFTHSM_MODULE: ${{ runner.os == 'Linux' && '/usr/lib/softhsm/libsofthsm2.so' || '' }}
+          ESIGN_TEST_SOFTHSM_PIN: ${{ runner.os == 'Linux' && '123456' || '' }}
+          SOFTHSM2_CONF: ${{ runner.temp }}/softhsm2.conf
+      - run: cargo clippy --locked --no-default-features --all-targets -- -D warnings
+      - name: Test x86 token worker (host build)
+        if: runner.os == 'Windows'
+        run: cargo test --locked --manifest-path src/token/worker/Cargo.toml
+
+      # Tauri app.
+      - run: pnpm install --frozen-lockfile
+        working-directory: app
+      - if: matrix.target == 'linux-x86_64'
+        working-directory: app
+        run: |
+          pnpm typecheck
+          pnpm exec vitest run --passWithNoTests
+      - run: cargo clippy --all-targets -- -D warnings
+        working-directory: app/src-tauri
+      - name: Set up macOS signing
+        if: runner.os == 'macOS' && env.VERSION != ''
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPSTORE_API_KEY_P8: ${{ secrets.APPSTORE_API_KEY_P8 }}
+          APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          APPSTORE_API_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash scripts/macos-signing-setup.sh
+      - name: Build installers
+        working-directory: app
+        shell: bash
+        env:
+          # Signs the updater bundles (.sig); the public key is in tauri.conf.json.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ env.VERSION != '' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ env.VERSION != '' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+        run: |
+          # Updater bundles are only signed and published for releases.
+          if [ -z "$VERSION" ]; then
+            pnpm tauri build ${{ matrix.args }} --config '{"bundle":{"createUpdaterArtifacts":false}}'
+          else
+            pnpm tauri build ${{ matrix.args }}
+          fi
+      - name: Notarize DMG and verify (macOS)
+        if: runner.os == 'macOS' && env.MACSIGNER_SIGN_IDENTITY != ''
+        shell: bash
+        run: |
+          app="$(ls -d "$BUNDLE"/macos/*.app)"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign -d --entitlements - "$app"
+          for dmg in "$BUNDLE"/dmg/*.dmg; do
+            codesign --force --timestamp --sign "$MACSIGNER_SIGN_IDENTITY" "$dmg"
+            if [ -n "${MACSIGNER_NOTARY_PROFILE:-}" ]; then
+              xcrun notarytool submit "$dmg" --keychain-profile "$MACSIGNER_NOTARY_PROFILE" \
+                --keychain "$MACSIGNER_KEYCHAIN" --wait --timeout 30m
+              xcrun stapler staple "$dmg"
+            fi
+          done
+          if [ -n "${MACSIGNER_NOTARY_PROFILE:-}" ]; then
+            xcrun stapler validate "$app"
+            spctl --assess --type execute --verbose=2 "$app"
+          fi
+      - name: Collect installers
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          shopt -s globstar nullglob
+          mkdir -p dist updater
+          bundle="$BUNDLE"
+          for f in "$bundle"/**/*.{dmg,msi,deb,rpm,AppImage} "$bundle"/nsis/*.exe; do cp "$f" dist/; done
+          if [ -n "$VERSION" ]; then
+            # Updater bundle + signature, and its entry for latest.json (built in publish).
+            updater() { # <platform key> <bundle> [published name]
+              local name="${3:-$(basename "$2")}"
+              cp "$2" "dist/$name"
+              cp "$2.sig" "dist/$name.sig"
+              jq -n --arg k "$1" --arg f "$name" --rawfile s "$2.sig" '{($k): {file: $f, signature: $s}}' > "updater/$1.json"
+            }
+            case "$TARGET" in
+              linux-x86_64) updater linux-x86_64 "$bundle"/appimage/*.AppImage ;;
+              linux-aarch64) updater linux-aarch64 "$bundle"/appimage/*.AppImage ;;
+              # The universal bundle serves both Intel and Apple Silicon Macs.
+              macos-universal)
+                updater darwin-aarch64 "$bundle"/macos/*.app.tar.gz "MacSigner_${VERSION}_universal.app.tar.gz"
+                jq '{"darwin-x86_64": .["darwin-aarch64"]}' updater/darwin-aarch64.json > updater/darwin-x86_64.json ;;
+              windows-x86_64)
+                updater windows-x86_64-msi "$bundle"/msi/*.msi
+                updater windows-x86_64-nsis "$bundle"/nsis/*.exe
+                jq '{"windows-x86_64": .["windows-x86_64-nsis"]}' updater/windows-x86_64-nsis.json > updater/windows-x86_64.json ;;
+            esac
+          fi
+          ls -l dist updater
+          [ -n "$(ls dist)" ]
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MacSigner-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+      - if: env.VERSION != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: updater-${{ matrix.target }}
+          path: updater/*.json
+          if-no-files-found: error
+
+  publish:
+    needs: [version, build]
+    if: needs.version.outputs.version != ''
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Commit, tag and push
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          bash scripts/bump-version.sh "$VERSION" >/dev/null
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet; then
+            git commit -am "chore(release): v$VERSION [skip ci]"
+          fi
+          git tag -a "v$VERSION" -m "MacSigner v$VERSION"
+          git push --atomic origin "HEAD:${GITHUB_REF_NAME}" "v$VERSION"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: MacSigner-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: updater-*
+          path: updater
+          merge-multiple: true
+      - name: Updater manifest (latest.json)
+        env:
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG"
+          jq -s --arg v "${TAG#v}" --arg base "$base" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{
+              version: $v,
+              notes: "MacSigner v\($v)",
+              pub_date: $date,
+              platforms: (add | map_values({signature, url: "\($base)/\(.file)"}))
+            }' updater/*.json > dist/latest.json
+          cat dist/latest.json
+      - run: cd dist && sha256sum * > SHA256SUMS.txt
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          gh release create "$TAG" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "MacSigner $TAG" \
+            --generate-notes \
+            --verify-tag

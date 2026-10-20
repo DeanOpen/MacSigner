@@ -1,0 +1,427 @@
+{
+  "schema_version": 1,
+  "transport": {
+    "path": "/plugin/sign",
+    "ports": [
+      8768,
+      8769
+    ],
+    "request_code_field": "CODE",
+    "success_field": "SUCCESS",
+    "success_values": [
+      "TRUE",
+      "FALSE"
+    ],
+    "native_header": "u32 little-endian UTF-8 byte length"
+  },
+  "commands": [
+    {
+      "code": "CHECK_VERSION",
+      "required_strings": [
+        "ROOT_URL"
+      ],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "CER_001",
+      "required_strings": [
+        "BASE64_VALUE",
+        "SERIAL_NUMBER",
+        "CHECK_CERT_SERIAL",
+        "CHECK_TIN",
+        "TIN_VALID",
+        "DATE_SIGNING",
+        "TIMEZONE_SIGNING"
+      ],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "CER_CHECK_NTDT",
+      "required_strings": [
+        "CHECK_CERT_SERIAL",
+        "CHECK_TIN",
+        "TIN_VALID",
+        "DATE_SIGNING",
+        "TIMEZONE_SIGNING"
+      ],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "CER_002",
+      "required_strings": [],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "NTDT_CER_001",
+      "required_strings": [
+        "BASE64_VALUE",
+        "SERIAL_NUMBER",
+        "GDT_SIGN_PATH",
+        "CHECK_CERT_SERIAL",
+        "CHECK_TIN",
+        "TIN_VALID",
+        "DATE_SIGNING",
+        "TIMEZONE_SIGNING"
+      ],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "NTDT_CER_002",
+      "required_strings": [
+        "NTDT_SIGN_CODE",
+        "BASE64_VALUE",
+        "SERIAL_NUMBER",
+        "CHECK_CERT_SERIAL",
+        "CHECK_TIN",
+        "TIN_VALID",
+        "DATE_SIGNING",
+        "TIMEZONE_SIGNING"
+      ],
+      "status": "pending",
+      "verified_on": [],
+      "conditional_strings": [
+        {
+          "field": "NTDT_SIGN_CODE",
+          "equals_ignore_case": "05",
+          "required_strings": [
+            "GDT_SIGN_PATH",
+            "BANK_SIGN_PATH"
+          ]
+        }
+      ]
+    },
+    {
+      "code": "JFU_001",
+      "required_strings": [],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "JFU_003",
+      "required_strings": [
+        "UPLOADED_FILE_NAME",
+        "URL_FILE_NAME",
+        "REQUEST_URL_ACTION",
+        "CHUNKSIZE",
+        "COOKIE_NAME",
+        "COOKIE_VALUE"
+      ],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "JFU_002",
+      "required_strings": [
+        "URL_FILE_NAME",
+        "SERIAL_NUMBER",
+        "CHECK_CERT_SERIAL",
+        "CHECK_TIN",
+        "TIN_VALID",
+        "DATE_SIGNING",
+        "TIMEZONE_SIGNING",
+        "XPATH_DATA",
+        "XPATH_SIGN"
+      ],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "JFU_PLUC_001",
+      "required_strings": [],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "JFU_PLUC_003",
+      "required_strings": [
+        "UPLOADED_FILE_NAME",
+        "URL_FILE_NAME",
+        "REQUEST_URL_ACTION",
+        "CHUNKSIZE",
+        "COOKIE_NAME",
+        "COOKIE_VALUE",
+        "CERT_CHAIN",
+        "SIGNATURE",
+        "ACTIVE_TIN",
+        "XPATH_DATA",
+        "XPATH_SIGN",
+        "VALID_XML"
+      ],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "JFU_PLUC_002",
+      "required_strings": [
+        "URL_FILE_NAME",
+        "SERIAL_NUMBER",
+        "CHECK_CERT_SERIAL",
+        "CHECK_TIN",
+        "TIN_VALID",
+        "DATE_SIGNING",
+        "TIMEZONE_SIGNING",
+        "XPATH_DATA",
+        "XPATH_SIGN",
+        "UPLOADED_FILE_NAME",
+        "MA_BANG_KE",
+        "MAP_VERSION_HTKK",
+        "VERSION_HTKK",
+        "CERT_CHAIN",
+        "SIGNATURE",
+        "ACTIVE_TIN",
+        "VALID_XML"
+      ],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "IMP_002",
+      "required_strings": [
+        "SUB_CODE"
+      ],
+      "status": "pending",
+      "verified_on": [],
+      "subcommands": [
+        {
+          "code": "BC26AC",
+          "required_strings": [
+            "ROW_MAX_NUMBER",
+            "TIN"
+          ],
+          "status": "pending",
+          "verified_on": []
+        },
+        {
+          "code": "02KKXS",
+          "required_strings": [
+            "ROW_MAX_NUMBER"
+          ],
+          "status": "pending",
+          "verified_on": []
+        },
+        {
+          "code": "06BK",
+          "required_strings": [
+            "ROW_MAX_NUMBER"
+          ],
+          "status": "pending",
+          "verified_on": []
+        },
+        {
+          "code": "NTHAU01",
+          "required_strings": [
+            "ROW_MAX_NUMBER"
+          ],
+          "status": "pending",
+          "verified_on": []
+        },
+        {
+          "code": "BC01AC",
+          "required_strings": [
+            "TIN",
+            "ROW_MAX_NUMBER"
+          ],
+          "status": "pending",
+          "verified_on": []
+        },
+        {
+          "code": "TNCN_05_16_BK",
+          "required_strings": [
+            "ROW_MAX_NUMBER"
+          ],
+          "status": "pending",
+          "verified_on": []
+        },
+        {
+          "code": "TNCN_05_01_PL",
+          "required_strings": [
+            "TIN",
+            "ROW_MAX_NUMBER"
+          ],
+          "status": "pending",
+          "verified_on": []
+        },
+        {
+          "code": "TNCN_05_02_PL",
+          "required_strings": [
+            "TIN",
+            "ROW_MAX_NUMBER"
+          ],
+          "status": "pending",
+          "verified_on": []
+        },
+        {
+          "code": "TNCN_05_03_PL",
+          "required_strings": [
+            "TIN",
+            "ROW_MAX_NUMBER"
+          ],
+          "status": "pending",
+          "verified_on": []
+        }
+      ]
+    },
+    {
+      "code": "DWN_BKE_001",
+      "required_strings": [
+        "BKE_URL"
+      ],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "CHOOSE_FILE",
+      "required_strings": [],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "OFFLINE_SIGN_003",
+      "required_strings": [
+        "UPLOADED_FILE_NAME",
+        "URL_FILE_NAME",
+        "REQUEST_URL_ACTION",
+        "CHUNKSIZE",
+        "COOKIE_NAME",
+        "COOKIE_VALUE",
+        "CERT_CHAIN",
+        "SIGNATURE",
+        "ACTIVE_TIN",
+        "XPATH_DATA",
+        "XPATH_SIGN",
+        "VALID_XML"
+      ],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "OFFLINE_SIGN_002",
+      "required_strings": [
+        "URL_FILE_NAME",
+        "SERIAL_NUMBER",
+        "CHECK_CERT_SERIAL",
+        "CHECK_TIN",
+        "TIN_VALID",
+        "DATE_SIGNING",
+        "TIMEZONE_SIGNING",
+        "XPATH_DATA",
+        "XPATH_SIGN",
+        "PKCS_11_LIBRARY_NAME_LIST",
+        "LOAI_HSO"
+      ],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "OFFLINE_XML_SIGN_003",
+      "required_strings": [
+        "UPLOADED_FILE_NAME",
+        "URL_FILE_NAME",
+        "REQUEST_URL_ACTION",
+        "CHUNKSIZE",
+        "COOKIE_NAME",
+        "COOKIE_VALUE"
+      ],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "OFFLINE_XML_SIGN_002",
+      "required_strings": [
+        "URL_FILE_NAME",
+        "SERIAL_NUMBER",
+        "CHECK_CERT_SERIAL",
+        "CHECK_TIN",
+        "TIN_VALID",
+        "DATE_SIGNING",
+        "TIMEZONE_SIGNING",
+        "XPATH_DATA",
+        "XPATH_SIGN",
+        "PKCS_11_LIBRARY_NAME_LIST"
+      ],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "ONLINE_SUBMIT_SIGNING_001",
+      "required_strings": [
+        "PIN_CODE",
+        "BASE64_VALUE",
+        "SERIAL_NUMBER",
+        "CHECK_CERT_SERIAL",
+        "CHECK_TIN",
+        "TIN_VALID",
+        "DATE_SIGNING",
+        "TIMEZONE_SIGNING",
+        "PKCS_11_LIBRARY_NAME_LIST"
+      ],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "ONLINE_SUBMIT_SIGNING_002",
+      "required_strings": [
+        "CHECK_CERT_SERIAL",
+        "ACTIVE_CERT_SERIAL",
+        "PKCS_11_LIBRARY_NAME_LIST",
+        "CHECK_TIN",
+        "TIN_VALID",
+        "DATE_SIGNING",
+        "TIMEZONE_SIGNING"
+      ],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "ONLINE_XML_CER_001",
+      "required_strings": [
+        "PIN_CODE",
+        "BASE64_VALUE",
+        "SERIAL_NUMBER",
+        "CHECK_CERT_SERIAL",
+        "CHECK_TIN",
+        "TIN_VALID",
+        "DATE_SIGNING",
+        "TIMEZONE_SIGNING",
+        "PKCS_11_LIBRARY_NAME_LIST"
+      ],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "ONLINE_XML_CER_002",
+      "required_strings": [
+        "CHECK_CERT_SERIAL",
+        "ACTIVE_CERT_SERIAL",
+        "PKCS_11_LIBRARY_NAME_LIST",
+        "CHECK_TIN",
+        "TIN_VALID",
+        "DATE_SIGNING",
+        "TIMEZONE_SIGNING"
+      ],
+      "status": "pending",
+      "verified_on": []
+    },
+    {
+      "code": "OFFLINE_XML_SIGN_003_NOT_KY",
+      "required_strings": [
+        "UPLOADED_FILE_NAME",
+        "URL_FILE_NAME",
+        "REQUEST_URL_ACTION",
+        "CHUNKSIZE",
+        "COOKIE_NAME",
+        "COOKIE_VALUE"
+      ],
+      "status": "pending",
+      "verified_on": []
+    }
+  ],
+  "declared_but_not_dispatched": [
+    "IMP_001"
+  ]
+}

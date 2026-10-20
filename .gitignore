@@ -1,0 +1,35 @@
+# Local toolchains (portable Node, pnpm, w64devkit)
+/.tools/
+
+# Build output
+/target/
+/dist/
+/app/node_modules/
+/app/dist/
+/app/src-tauri/target/
+/app/src-tauri/gen/
+
+# Secrets and signing material (test fixtures use *.fixture)
+*.pin
+*.p12
+*.pfx
+*.key
+*.pem
+.env
+.env.*
+
+# Analysis material of third-party apps must never be committed
+/evidence/
+/docs/
+
+# Logs
+*.log
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+

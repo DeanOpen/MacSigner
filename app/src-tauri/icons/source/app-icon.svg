@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- MacSigner app icon (source for `pnpm tauri icon`).
+       Tile: 824x824 at (100,100), the macOS icon grid; artwork keeps >= 60 units
+       clear of the tile edge so nothing is clipped by OS masks or small sizes.
+       The UI mark (public/logo.svg) is this drawing with viewBox="100 100 824 824". -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3d74f5"/>
+      <stop offset="1" stop-color="#1f45c7"/>
+    </linearGradient>
+    <linearGradient id="seal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#27c26c"/>
+      <stop offset="1" stop-color="#159a52"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="100" y="100" width="824" height="824" rx="188" fill="url(#tile)"/>
+  <!-- soft top sheen -->
+  <path d="M100 288 C100 184 184 100 288 100 H736 C840 100 924 184 924 288 V420 C760 360 300 360 100 470 Z" fill="#ffffff" opacity="0.07"/>
+
+  <!-- document with folded corner -->
+  <path d="M342 232 H606 L716 342 V736 Q716 780 672 780 H342 Q298 780 298 736 V276 Q298 232 342 232 Z" fill="#ffffff"/>
+  <path d="M606 232 V306 Q606 342 642 342 H716 Z" fill="#c7d5fb"/>
+
+  <!-- text lines -->
+  <rect x="362" y="400" width="214" height="28" rx="14" fill="#d6e0fa"/>
+  <rect x="362" y="458" width="150" height="28" rx="14" fill="#d6e0fa"/>
+
+  <!-- signature -->
+  <path d="M368 640 C388 584 414 560 432 600 C446 632 450 668 474 646 C498 624 502 576 528 590 C552 604 540 664 570 654 C590 648 600 616 626 610"
+        fill="none" stroke="#2557e7" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="368" y1="700" x2="600" y2="700" stroke="#2557e7" stroke-opacity="0.3" stroke-width="14" stroke-linecap="round"/>
+
+  <!-- verified seal -->
+  <circle cx="712" cy="740" r="124" fill="#ffffff"/>
+  <circle cx="712" cy="740" r="100" fill="url(#seal)"/>
+  <path d="M664 742 L698 776 L762 708" fill="none" stroke="#ffffff" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

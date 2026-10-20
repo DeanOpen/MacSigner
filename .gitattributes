@@ -1,0 +1,7 @@
+* text=auto
+# Shell scripts run on Linux/macOS CI runners and must keep LF endings.
+*.sh text eol=lf
+*.ttf binary
+*.fixture binary
+*.der binary
+*.pdf binary

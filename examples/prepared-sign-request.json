@@ -1,0 +1,12 @@
+{
+  "CODE": "ONLINE_XML_CER_001",
+  "BASE64_VALUE": "SGVsbG8=",
+  "SERIAL_NUMBER": "",
+  "CHECK_CERT_SERIAL": "false",
+  "CHECK_TIN": "false",
+  "TIN_VALID": "",
+  "DATE_SIGNING": "",
+  "TIMEZONE_SIGNING": "",
+  "PIN_CODE": "",
+  "PKCS_11_LIBRARY_NAME_LIST": ""
+}
