@@ -1,6 +1,6 @@
 [package]
 name = "macsigner-app"
-version = "0.2.0"
+version = "0.2.1"
 description = "MacSigner — ký số PDF, ESIGN và CTSIGN (Tauri)"
 edition = "2024"
 
