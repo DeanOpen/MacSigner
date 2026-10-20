@@ -7,7 +7,6 @@ use macsigner::{
 
 const HELP: &str = "MacSigner — ESIGN + CTSIGN trong một ứng dụng Rust.
 Cách dùng:
-  macsigner                      Mở giao diện desktop
   macsigner serve [--esign] [--ctsign]
                                  Chạy dịch vụ không giao diện. Không có cờ: chạy
                                  các dịch vụ đang bật trong cấu hình
@@ -113,22 +112,7 @@ fn ctsign_headless() -> Result<(), String> {
 fn run() -> Result<(), String> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
-        None => {
-            #[cfg(all(windows, feature = "desktop"))]
-            hide_own_console();
-            #[cfg(feature = "desktop")]
-            return macsigner::desktop::run(None).map_err(|e| format!("Desktop: {e}"));
-            #[cfg(not(feature = "desktop"))]
-            Err(format!("Bản build không có giao diện.\n{HELP}"))
-        }
-        // `macsigner file.pdf` (also used by the OS "Open with") opens the viewer.
-        #[cfg(feature = "desktop")]
-        Some(file) if args.len() == 1 && file.to_ascii_lowercase().ends_with(".pdf") => {
-            #[cfg(windows)]
-            hide_own_console();
-            macsigner::desktop::run(Some(file.into())).map_err(|e| format!("Desktop: {e}"))
-        }
-        Some("--help" | "-h" | "help") => {
+        None | Some("--help" | "-h" | "help") => {
             println!("{HELP}");
             Ok(())
         }
@@ -151,25 +135,6 @@ fn run() -> Result<(), String> {
             ctsign_headless()
         }
         _ => Err(format!("Tham số không hợp lệ\n{HELP}")),
-    }
-}
-
-// The binary keeps the console subsystem so CLI commands print normally. When the
-// GUI is started by double-click, Windows creates a console used by this process
-// alone; detach from it. A console shared with a shell (count > 1) is kept.
-#[cfg(all(windows, feature = "desktop"))]
-fn hide_own_console() {
-    unsafe extern "system" {
-        fn GetConsoleProcessList(list: *mut u32, count: u32) -> u32;
-        fn FreeConsole() -> i32;
-    }
-    let mut ids = [0u32; 2];
-    // SAFETY: the buffer length passed matches the array; both calls take no
-    // other pointers and only affect this process's console attachment.
-    unsafe {
-        if GetConsoleProcessList(ids.as_mut_ptr(), ids.len() as u32) == 1 {
-            FreeConsole();
-        }
     }
 }
 

@@ -62,4 +62,4 @@ Ba luồng riêng biệt, không dùng chung quyền hoặc coi là một thao t
 
 Đây là thay đổi cấu trúc và hướng phụ thuộc, giữ nguyên hợp đồng hiện tại. Không đặt chỉ tiêu thông lượng khi chưa đo tải: dò driver vẫn tuần tự, mỗi lần probe có thời hạn riêng; lớp `SigningState` hiện tại còn giữ khóa chung khi ký. Cô lập tiến trình hiện chỉ áp dụng cho dò thiết bị, không áp dụng cho toàn bộ quá trình ký. Mở rộng số nhà cung cấp và tăng số yêu cầu ký đồng thời là hai công việc khác nhau.
 
-Kiểm tra bằng `scripts/cargo-windows.ps1 test --locked`; kiểm tra bản không giao diện bằng `scripts/cargo-windows.ps1 check --locked --no-default-features`. Một số test phần cứng phụ thuộc biến môi trường và có thể trả về sớm khi thiếu thiết bị/module; kết quả test không thay thế kiểm thử thiết bị thật.
+Kiểm tra bằng `scripts/cargo-windows.ps1 test --locked`. Một số test phần cứng phụ thuộc biến môi trường và có thể trả về sớm khi thiếu thiết bị/module; kết quả test không thay thế kiểm thử thiết bị thật.

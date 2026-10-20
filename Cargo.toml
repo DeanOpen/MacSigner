@@ -4,26 +4,18 @@ version = "0.2.0"
 edition = "2024"
 description = "ESIGN + CTSIGN signing helpers merged into one Rust desktop application"
 
-[features]
-default = ["desktop"]
-desktop = ["dep:eframe", "dep:rfd", "dep:hayro"]
-
 [dependencies]
 anyhow = "1"
 axum = "0.8"
 base64 = "0.22"
 chrono = "0.4"
 cryptoki = "0.12.1"
-eframe = { version = "0.33", optional = true, default-features = false, features = ["default_fonts", "glow", "x11", "wayland"] }
 flate2 = "1"
-# PDF page rendering for the legacy egui UI only; the Tauri app previews with pdf.js.
-hayro = { version = "0.8", features = ["embed-fonts"], optional = true }
 hex = "0.4"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 lopdf = { version = "0.38", default-features = false }
 p12-keystore = "0.3.2"
 pcsc = "2.9.0"
-rfd = { version = "0.15", optional = true }
 rpassword = "7"
 rsa = { version = "0.9", features = ["pem", "sha1", "sha2"] }
 serde = { version = "1", features = ["derive"] }

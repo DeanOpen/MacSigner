@@ -182,27 +182,11 @@ async fn dispatch(
                 Err(e) => Json(Response::<Value>::error(500, e.to_string())).into_response(),
             }
         }
-        ("hubclient", "getfilelocal") => {
-            #[cfg(feature = "desktop")]
-            {
-                match tokio::task::spawn_blocking(|| rfd::FileDialog::new().pick_file()).await {
-                    Ok(Some(path)) => Json(Response::success(
-                        path.to_string_lossy().into_owned(),
-                        "Chọn file thành công",
-                    ))
-                    .into_response(),
-                    Ok(None) => Json(Response::<String>::error(404, "Không có file được chọn"))
-                        .into_response(),
-                    Err(e) => Json(Response::<String>::error(500, e.to_string())).into_response(),
-                }
-            }
-            #[cfg(not(feature = "desktop"))]
-            Json(Response::<String>::error(
-                501,
-                "Native file selection requires desktop build",
-            ))
-            .into_response()
-        }
+        ("hubclient", "getfilelocal") => Json(Response::<String>::error(
+            501,
+            "Native file selection requires desktop build",
+        ))
+        .into_response(),
         ("hubclient", "signpdf") => {
             if !state.api_signing_enabled.load(Ordering::SeqCst) {
                 return Json(Response::<Value>::error(

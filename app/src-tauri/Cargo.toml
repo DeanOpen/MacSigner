@@ -12,8 +12,8 @@ crate-type = ["rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-# The signing core (ESIGN, CTSIGN, PDF, Windows store); egui UI disabled.
-macsigner = { path = "../..", default-features = false }
+# The signing core (ESIGN, CTSIGN, PDF, Windows store).
+macsigner = { path = "../.." }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"

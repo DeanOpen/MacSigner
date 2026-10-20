@@ -320,10 +320,8 @@ Gặp lỗi hoặc muốn góp ý? Hãy mở một [issue](../../issues) kèm t�
 Bản dòng lệnh không có trong bản phát hành; build từ mã nguồn bằng `cargo build --release` (tệp chạy ở `target/release/macsigner`).
 
 ```bash
-macsigner                            # mở giao diện
-macsigner hop-dong.pdf               # mở sẵn một tệp PDF để ký
 macsigner selftest                   # tự kiểm tra hai mô-đun ESIGN và CTSIGN
-macsigner serve --esign --ctsign     # chỉ chạy dịch vụ, không mở giao diện
+macsigner serve --esign --ctsign     # chạy dịch vụ ESIGN và CTSIGN
 macsigner esign cert-list            # liệt kê token và chứng thư tìm được
 macsigner esign sign-base64 sha256 SGVsbG8=
 macsigner ctsign --headless
@@ -363,7 +361,6 @@ src/cms.rs       định dạng CMS / CAdES
 src/token/       dò USB token, tiến trình PKCS#11, kho chứng thư Windows
 src/esign/       giao thức ESIGN, WebSocket, native messaging, PC/SC
 src/ctsign/      API HTTP CTSIGN
-src/desktop/     giao diện desktop gọn nhẹ (feature "desktop")
 src/services.rs  bật, tắt dịch vụ
 src/selftest.rs  tự kiểm thử
 app/             ứng dụng giao diện chính (Tauri + React)
