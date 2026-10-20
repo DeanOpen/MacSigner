@@ -54,24 +54,6 @@ function useFileInputs() {
   }, [openFile]);
 }
 
-/** src-tauri/src/updater.rs installs a new release and restarts a few seconds after this event. */
-function useUpdateNotice() {
-  useEffect(() => {
-    if (!isTauri()) return;
-    let disposed = false;
-    let unlisten: (() => void) | undefined;
-    import("@tauri-apps/api/event").then(({ listen }) =>
-      listen<{ version: string }>("app-update", (e) =>
-        toast.info(`Đang cập nhật MacSigner v${e.payload.version}`, "Ứng dụng sẽ tự khởi động lại sau vài giây"),
-      ).then((fn) => (disposed ? fn() : (unlisten = fn))),
-    );
-    return () => {
-      disposed = true;
-      unlisten?.();
-    };
-  }, []);
-}
-
 const views = {
   sign: SignView,
   certificates: CertificatesView,
@@ -86,7 +68,6 @@ export default function App() {
   useThemeClass();
   useFileInputs();
   useUsbWatcher();
-  useUpdateNotice();
   const route = useApp((s) => s.route);
   const rail = useRail();
   const View = views[route];

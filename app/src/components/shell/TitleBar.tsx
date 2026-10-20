@@ -1,5 +1,6 @@
 import { cn, Kbd, Tooltip } from "@heroui/react";
-import { Minus, Moon, Search, Square, Sun, Usb, X } from "lucide-react";
+import { Minus, Moon, RefreshCw, Search, Square, Sun, Usb, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "react-aria-components";
 import { isTauri } from "../../ipc/api";
 import { shortName, useUsb } from "../../lib/usb";
@@ -31,6 +32,41 @@ function TokenChip() {
       <Usb className="size-3.5 shrink-0" />
       <span className="truncate">{label}</span>
     </Button>
+  );
+}
+
+/** Version being installed; src-tauri/src/updater.rs emits "app-update" a few seconds before it restarts. */
+function useUpdatingVersion() {
+  const [version, setVersion] = useState<string>();
+  useEffect(() => {
+    if (!isTauri()) return;
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    import("@tauri-apps/api/event").then(({ listen }) =>
+      listen<{ version: string }>("app-update", (e) => setVersion(e.payload.version)).then((fn) =>
+        disposed ? fn() : (unlisten = fn),
+      ),
+    );
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
+  return version;
+}
+
+function UpdateChip() {
+  const version = useUpdatingVersion();
+  if (!version) return null;
+  return (
+    <span
+      role="status"
+      title="Ứng dụng sẽ tự khởi động lại sau vài giây"
+      className="flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-accent/30 bg-accent-soft px-2.5 text-xs font-medium text-accent-soft-foreground"
+    >
+      <RefreshCw className="size-3.5 animate-spin" />
+      Đang cập nhật v{version}…
+    </span>
   );
 }
 
@@ -100,6 +136,7 @@ export function TitleBar({ rail }: { rail: boolean }) {
         </Kbd>
       </Button>
       <div data-tauri-drag-region className="h-full min-w-4 flex-1" />
+      <UpdateChip />
       <TokenChip />
       <ChromeButton label={dark ? "Giao diện sáng" : "Giao diện tối"} onPress={() => setTheme(dark ? "light" : "dark")}>
         {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
