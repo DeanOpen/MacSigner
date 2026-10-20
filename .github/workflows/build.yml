@@ -129,6 +129,8 @@ jobs:
           # Signs the updater bundles (.sig); the public key is in tauri.conf.json.
           TAURI_SIGNING_PRIVATE_KEY: ${{ env.VERSION != '' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ env.VERSION != '' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+          # Tauri skips the Finder layout (background, icon positions) of the DMG when CI is set.
+          TAURI_BUNDLER_DMG_IGNORE_CI: "true"
         run: |
           # Updater bundles are only signed and published for releases.
           if [ -z "$VERSION" ]; then
