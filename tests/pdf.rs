@@ -221,6 +221,7 @@ fn writes_sample_for_external_check() {
     std::fs::write(format!("{dir}/signed-xrefstream.pdf"), &signed).unwrap();
 }
 
+#[cfg(feature = "desktop")]
 #[test]
 fn renders_signed_page_for_visual_check() {
     let signed = pdf::sign(&classic_pdf(), &[CERT.to_vec()], &visible(1), signer).unwrap();
@@ -242,6 +243,7 @@ fn renders_signed_page_for_visual_check() {
     }
 }
 
+#[cfg(feature = "desktop")]
 #[test]
 fn signs_real_world_file_when_given() {
     // MACSIGNER_PDF_IN=file.pdf with MACSIGNER_PDF_OUT=dir signs a real document.

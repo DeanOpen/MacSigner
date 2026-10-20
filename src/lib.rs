@@ -13,4 +13,5 @@ pub mod pdf;
 pub mod selftest;
 pub mod services;
 pub mod token;
+#[cfg(feature = "desktop")]
 pub mod viewer;

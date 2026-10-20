@@ -6,7 +6,7 @@ description = "ESIGN + CTSIGN signing helpers merged into one Rust desktop appli
 
 [features]
 default = ["desktop"]
-desktop = ["dep:eframe", "dep:rfd"]
+desktop = ["dep:eframe", "dep:rfd", "dep:hayro"]
 
 [dependencies]
 anyhow = "1"
@@ -16,7 +16,8 @@ chrono = "0.4"
 cryptoki = "0.12.1"
 eframe = { version = "0.33", optional = true, default-features = false, features = ["default_fonts", "glow", "x11", "wayland"] }
 flate2 = "1"
-hayro = { version = "0.8", features = ["embed-fonts"] }
+# PDF page rendering for the legacy egui UI only; the Tauri app previews with pdf.js.
+hayro = { version = "0.8", features = ["embed-fonts"], optional = true }
 hex = "0.4"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 lopdf = { version = "0.38", default-features = false }
@@ -40,6 +41,8 @@ zeroize = "1"
 windows-sys = { version = "0.60", features = ["Win32_Foundation", "Win32_Security_Cryptography", "Win32_System_LibraryLoader"] }
 
 [dev-dependencies]
+# Independent parser for checking signed PDFs in tests.
+hayro = { version = "0.8", features = ["embed-fonts"] }
 http-body-util = "0.1"
 rand = "0.8"
 tower = { version = "0.5", features = ["util"] }

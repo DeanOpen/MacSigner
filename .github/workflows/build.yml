@@ -16,8 +16,9 @@ on:
 permissions:
   contents: write
 concurrency:
+  # A newer push supersedes the running build, on main too (the release then comes from it).
   group: build-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: true
 jobs:
   version:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
@@ -81,6 +82,8 @@ jobs:
           SOFTHSM2_CONF="$RUNNER_TEMP/softhsm2.conf" softhsm2-util --init-token --free --label ESIGN-CI --so-pin 12345678 --pin 123456
       - uses: Swatinem/rust-cache@v2
         with:
+          # Keep the compiled dependencies even when a later step (e.g. notarization) fails.
+          cache-on-failure: true
           workspaces: |
             . -> target
             app/src-tauri -> target
