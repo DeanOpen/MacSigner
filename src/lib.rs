@@ -11,3 +11,4 @@ pub mod pdf;
 pub mod selftest;
 pub mod services;
 pub mod token;
+pub mod vnpt;

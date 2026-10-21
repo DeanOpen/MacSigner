@@ -3,9 +3,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { create } from "zustand";
 import { toast } from "../components/Toasts";
-import { api, invoke, isTauri } from "../ipc/api";
-import { keys } from "../queries";
-import { scanning } from "./scan";
+import { invoke, isTauri } from "../ipc/api";
+import { keys, scanCertificates } from "../queries";
 
 export interface Reader {
   name: string;
@@ -36,17 +35,21 @@ export function useUsbWatcher() {
     let disposed = false;
     let unlisten: (() => void) | undefined;
     let previous: Reader[] | null = null;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
     const refresh = () => {
-      // The Windows store learns new token certificates a moment after insertion
-      // (certificate propagation), so refresh now and again shortly after.
-      api.listCertificates(false).then((d) => qc.setQueryData(keys.certs, d));
-      setTimeout(
-        () =>
-          scanning(api.listCertificates(true)).then((d) => {
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(
+        () => {
+          if (disposed) return;
+          scanCertificates(true).then((d) => {
+            if (disposed) return;
             qc.setQueryData(keys.certs, d);
             qc.invalidateQueries({ queryKey: keys.tokens });
-          }),
+          }).catch(() => {
+            if (!disposed) toast.error("Chưa đọc được USB token", "MacSigner chưa hoàn tất tự nhận; thử Tìm lại, chưa cần nhập PIN.");
+          });
+        },
         2500,
       );
     };
@@ -62,8 +65,8 @@ export function useUsbWatcher() {
         for (const p of previous) {
           if (p.present && !readers.some((r) => r.name === p.name)) toast.info("Đã rút USB token", shortName(p.name));
         }
-        refresh();
       }
+      refresh();
       previous = readers;
       useUsb.getState().set(readers);
     };
@@ -73,6 +76,7 @@ export function useUsbWatcher() {
         if (!disposed && previous === null) {
           previous = r;
           useUsb.getState().set(r);
+          refresh();
         }
       })
       .catch(() => !disposed && useUsb.getState().set([]));
@@ -84,6 +88,7 @@ export function useUsbWatcher() {
     );
     return () => {
       disposed = true;
+      clearTimeout(refreshTimer);
       unlisten?.();
     };
   }, [qc]);

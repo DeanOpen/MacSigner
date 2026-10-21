@@ -1,4 +1,5 @@
 mod catalog;
+mod macho;
 mod paths;
 mod probe;
 mod selection;
@@ -60,7 +61,7 @@ pub fn certificates() -> Result<Value, Box<dyn Error>> {
         }
     }
     Ok(
-        json!({"certificates": certs, "token_errors": errors, "module_errors": list["module_errors"]}),
+        json!({"tokens": list["tokens"], "certificates": certs, "token_errors": errors, "module_errors": list["module_errors"]}),
     )
 }
 

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { scanning } from "../lib/scan";
-import { api, type CertList, type Preferences, type Services, type Settings } from "../ipc/api";
+import { coalesceScans, scanning } from "../lib/scan";
+import { api, type CertList, type Preferences, type Services, type Settings, type ServiceName } from "../ipc/api";
 
 export const keys = {
   certs: ["certificates"] as const,
@@ -12,6 +12,8 @@ export const keys = {
   activity: ["activity"] as const,
 };
 
+export const scanCertificates = coalesceScans(() => scanning(api.listCertificates(true)));
+
 /** Windows store first (instant), then a background token scan. */
 export function useCertificates() {
   const qc = useQueryClient();
@@ -20,16 +22,16 @@ export function useCertificates() {
     queryFn: async () => {
       const quick = await api.listCertificates(false);
       // Token probing can take seconds; refresh the list when it is done.
-      scanning(api.listCertificates(true)).then((full) => {
+      scanCertificates().then((full) => {
         qc.setQueryData(keys.certs, full);
         qc.invalidateQueries({ queryKey: keys.tokens });
-      });
+      }).catch(() => qc.invalidateQueries({ queryKey: keys.tokens }));
       return quick;
     },
     staleTime: Infinity,
   });
   const rescan = useMutation({
-    mutationFn: () => scanning(api.listCertificates(true)),
+    mutationFn: () => scanCertificates(true),
     onSuccess: (data: CertList) => {
       qc.setQueryData(keys.certs, data);
       qc.invalidateQueries({ queryKey: keys.tokens });
@@ -50,7 +52,7 @@ export function useServices() {
 export function useServiceMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ name, running }: { name: "esign" | "ctsign"; running: boolean }) => api.setService(name, running),
+    mutationFn: ({ name, running }: { name: ServiceName; running: boolean }) => api.setService(name, running),
     onSuccess: (data: Services) => qc.setQueryData(keys.services, data),
   });
 }

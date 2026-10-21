@@ -44,7 +44,7 @@ export function TestsView() {
   const failed = tests.data?.filter((c) => c.outcome === "fail").length ?? 0;
 
   return (
-    <Page title="Kiểm thử" subtitle="Kiểm tra ESIGN, CTSIGN và chứng thư mà không cần tài liệu.">
+    <Page title="Kiểm thử" subtitle="Kiểm tra ESIGN, CTSIGN và giao thức VNPT; các phần chưa hỗ trợ được ghi Bỏ qua.">
       <Section
         title="Tự kiểm tra"
         description={
@@ -52,7 +52,7 @@ export function TestsView() {
             ? failed
               ? `${failed} mục lỗi trên ${tests.data.length}`
               : `Tất cả ${tests.data.length} mục đạt hoặc bỏ qua`
-            : "Gọi ESIGN và CTSIGN bằng client thật, so chữ ký với bản gốc Java/.NET."
+            : "ESIGN/CTSIGN dùng client thử và vector chữ ký; VNPT mới kiểm tra frame mẫu, chưa thử ký."
         }
         actions={
           <Button size="sm" variant="secondary" isDisabled={tests.isPending} onPress={() => tests.mutate()}>

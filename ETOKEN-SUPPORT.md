@@ -1,13 +1,13 @@
 # USB ký số nào dùng được với MacSigner?
 
-Cập nhật ngày **20/10/2026**.
+Cập nhật ngày **21/10/2026**.
 
 > [!IMPORTANT]
 > **Câu trả lời ngắn:** hiện tại **chưa có USB ký số nào** được xác nhận ký được bằng MacSigner.
 >
-> MacSigner đang ở giai đoạn thử nghiệm (Alpha). Với USB của **CA2** và **E-CA**, MacSigner đã nhận được USB và đọc được chữ ký số bên trong, nhưng chưa ký thử. Các hãng khác còn chưa được thử với USB thật.
+> MacSigner đang ở giai đoạn thử nghiệm (Alpha). Với USB của **CA2** và **E-CA**, MacSigner đã đọc được chứng thư bên trong trên **Windows**, nhưng chưa ký thử. Chưa xác nhận đọc được hai dòng USB này trên **macOS, gồm Mac M2**. Nhận đầu đọc USB không đồng nghĩa đọc được chứng thư. Các hãng khác còn chưa được thử với USB thật.
 >
-> Nếu bạn cần ký ngay, hãy dùng **chữ ký số dạng tệp** (tệp `.p12` hoặc `.pfx` do nhà cung cấp gửi). Cách này đã dùng được.
+> Nếu đã có **chữ ký số dạng tệp** hợp lệ (`.p12` hoặc `.pfx`), bạn có thể dùng luồng nhập tệp. Không mặc định khóa trong USB xuất được thành tệp; không gửi khóa bí mật hoặc PIN qua chat.
 
 ## Tra cứu theo nhà cung cấp
 
@@ -15,45 +15,45 @@ Tìm tên đơn vị đã bán USB ký số cho bạn (in trên USB hoặc trên
 
 **Cách đọc cột "Hiện trạng":**
 
-- 🟢 **Đã nhận (không cần cài đặt gì):** cắm USB vào là MacSigner thấy được chữ ký số bên trong, không cần cài thêm phần mềm nào.
-- 🟡 **Thông qua phần mềm của hãng:** bạn cần cài phần mềm USB token (driver) của hãng, MacSigner sẽ dùng USB qua phần mềm đó. Chưa thử với USB thật.
-- ⚪ **Chưa có gì:** chưa có phần mềm của hãng, chưa thử được.
+- 🟢 **Đã đọc trên Windows:** đã đọc chứng thư trên USB thật bằng bộ kết nối của máy thử; không khẳng định máy chưa từng cài thành phần hãng, không áp dụng mặc nhiên cho macOS hoặc mọi đời USB.
+- 🟡 **Chưa test full:** đã có một số bộ kết nối để phân tích hoặc thử khởi tạo; chưa đủ bằng chứng đọc/ký trên USB thật, chưa mặc nhiên được đóng gói vào app.
+- ⚪ **Chưa có bộ đọc USB:** chưa có đường đọc USB được xác nhận; có thể đã có tài liệu hoặc phần mềm ký từ xa.
 
 | Logo | Nhà cung cấp | Hiện trạng | Ghi chú |
 | --- | --- | --- | --- |
-| <img src="assets/ca-logos/bkavca.jpg" alt="BkavCA" width="96"> | BkavCA | 🟡 Thông qua phần mềm của hãng | Hãng có nhiều đời USB, cần thử từng đời |
-| <img src="assets/ca-logos/ca2.jpg" alt="CA2" width="96"> | CA2 / Nacencomm | 🟢 Đã nhận (không cần cài đặt gì) | Đã đọc được 2 chữ ký số trên USB CA2 ACE |
-| <img src="assets/ca-logos/cmc-ca.png" alt="CMC-CA" width="96"> | CMC-CA | 🟡 Thông qua phần mềm của hãng | |
-| <img src="assets/ca-logos/e-ca.jpg" alt="E-CA" width="96"> | E-CA (Thái Sơn) | 🟢 Đã nhận (không cần cài đặt gì) | Đã đọc được 1 chữ ký số |
-| <img src="assets/ca-logos/easyca.png" alt="EASYCA" width="96"> | EASYCA | 🟡 Thông qua phần mềm của hãng | |
-| <img src="assets/ca-logos/efy-ca.jpg" alt="EFY-CA" width="96"> | EFY-CA | 🟡 Thông qua phần mềm của hãng | |
-| <img src="assets/ca-logos/fastca.png" alt="FASTCA" width="96"> | FASTCA | 🟡 Thông qua phần mềm của hãng | Có cho USB đời V4, V6, V9 |
-| <img src="assets/ca-logos/fpt-ca.png" alt="FPT-CA" width="96"> | FPT-CA | 🟡 Thông qua phần mềm của hãng | Chưa đủ cho mọi đời USB |
-| <img src="assets/ca-logos/hilo-ca.png" alt="Hilo-CA" width="96"> | Hilo-CA | 🟡 Thông qua phần mềm của hãng | Chưa đủ cho mọi đời USB |
-| <img src="assets/ca-logos/i-ca.png" alt="I-CA" width="96"> | I-CA | 🟡 Thông qua phần mềm của hãng | |
-| <img src="assets/ca-logos/intrustca.jpg" alt="IntrustCA" width="96"> | IntrustCA | ⚪ Chưa có gì | Hãng đang dùng hình thức ký từ xa, không dùng USB |
-| <img src="assets/ca-logos/lcs-ca.png" alt="LCS-CA" width="96"> | LCS-CA | 🟡 Thông qua phần mềm của hãng | Có cho USB đời V2 |
-| <img src="assets/ca-logos/matbao-ca.jpg" alt="MATBAO-CA" width="96"> | MATBAO-CA | ⚪ Chưa có gì | |
-| <img src="assets/ca-logos/misa-ca.jpg" alt="MISA-CA" width="96"> | MISA-CA | 🟡 Thông qua phần mềm của hãng | Phần mềm đã chạy được trên máy thử |
-| <img src="assets/ca-logos/mk-ca.png" alt="MK CA" width="96"> | MK CA | ⚪ Chưa có gì | |
-| <img src="assets/ca-logos/mobifone-ca.png" alt="MOBIFONE CA" width="96"> | MOBIFONE CA | ⚪ Chưa có gì | Mới có tài liệu hướng dẫn của hãng |
-| <img src="assets/ca-logos/nc-ca.png" alt="NC-CA" width="96"> | NC-CA | 🟡 Thông qua phần mềm của hãng | |
-| <img src="assets/ca-logos/newtel-ca.png" alt="Newtel-CA" width="96"> | Newtel-CA | 🟡 Thông qua phần mềm của hãng | Có cho USB đời V6 |
-| <img src="assets/ca-logos/one-ca.jpg" alt="ONE-CA" width="96"> | ONE-CA | 🟡 Thông qua phần mềm của hãng | |
-| <img src="assets/ca-logos/safe-ca.jpg" alt="Safe-CA" width="96"> | Safe-CA | 🟡 Thông qua phần mềm của hãng | Có cho USB đời V1, V2 |
-| <img src="assets/ca-logos/smartsign.png" alt="SmartSign" width="96"> | SmartSign / Vina-CA | 🟡 Thông qua phần mềm của hãng | Có cho USB đời V6 |
-| <img src="assets/ca-logos/trustca.png" alt="TrustCA" width="96"> | TrustCA | 🟡 Thông qua phần mềm của hãng | Chưa đủ cho mọi đời USB |
-| <img src="assets/ca-logos/viettel-ca.jpg" alt="Viettel-CA" width="96"> | Viettel-CA | 🟡 Thông qua phần mềm của hãng | Phần mềm cho USB đời V0, V2–V5 đã chạy được trên máy thử; bản cho đời V1 còn lỗi |
-| <img src="assets/ca-logos/vnpay-ca.png" alt="VNPAY-CA" width="96"> | VNPAY-CA | ⚪ Chưa có gì | Chưa rõ hãng dùng loại USB nào |
-| <img src="assets/ca-logos/vnpt-ca.jpg" alt="VNPT-CA" width="96"> | VNPT-CA | 🟡 Thông qua phần mềm của hãng | **Hãng có phần mềm cho Mac** (cả Mac chip Intel và chip Apple) |
-| <img src="assets/ca-logos/winca.png" alt="WINCA" width="96"> | WINCA | 🟡 Thông qua phần mềm của hãng | Lấy từ đại lý, chưa đối chiếu với hãng |
+| <img src="assets/ca-logos/bkavca.jpg" alt="BkavCA" width="96"> | BkavCA | 🟡 Chưa test full | Hãng có nhiều đời USB, cần thử từng đời |
+| <img src="assets/ca-logos/ca2.jpg" alt="CA2" width="96"> | CA2 / Nacencomm | 🟢 Đã đọc trên Windows | Đã đọc được 2 chứng thư trên USB CA2 ACE; macOS/M2 chưa xác nhận |
+| <img src="assets/ca-logos/cmc-ca.png" alt="CMC-CA" width="96"> | CMC-CA | 🟡 Chưa test full | |
+| <img src="assets/ca-logos/e-ca.jpg" alt="E-CA" width="96"> | E-CA (Thái Sơn) | 🟢 Đã đọc trên Windows | Đã đọc được 1 chứng thư; macOS/M2 chưa xác nhận |
+| <img src="assets/ca-logos/easyca.png" alt="EASYCA" width="96"> | EASYCA | 🟡 Chưa test full | |
+| <img src="assets/ca-logos/efy-ca.jpg" alt="EFY-CA" width="96"> | EFY-CA | 🟡 Chưa test full | |
+| <img src="assets/ca-logos/fastca.png" alt="FASTCA" width="96"> | FASTCA | 🟡 Chưa test full | Có một số đời USB; hai thành phần có nghi vấn toàn vẹn bị chặn chạy |
+| <img src="assets/ca-logos/fpt-ca.png" alt="FPT-CA" width="96"> | FPT-CA | 🟡 Chưa test full | Chưa đủ cho mọi đời USB; một số gói còn chờ đối chiếu nguồn |
+| <img src="assets/ca-logos/hilo-ca.png" alt="Hilo-CA" width="96"> | Hilo-CA | 🟡 Chưa test full | Chưa đủ cho mọi đời USB |
+| <img src="assets/ca-logos/i-ca.png" alt="I-CA" width="96"> | I-CA | 🟡 Chưa test full | |
+| <img src="assets/ca-logos/intrustca.jpg" alt="IntrustCA" width="96"> | IntrustCA | ⚪ Chưa có bộ đọc USB | Thành phần đã phân tích là cầu nối ký từ xa, chưa xác nhận đường USB |
+| <img src="assets/ca-logos/lcs-ca.png" alt="LCS-CA" width="96"> | LCS-CA | 🟡 Chưa test full | Có cho USB đời V2 |
+| <img src="assets/ca-logos/matbao-ca.jpg" alt="MATBAO-CA" width="96"> | MATBAO-CA | ⚪ Chưa có bộ đọc USB | |
+| <img src="assets/ca-logos/misa-ca.jpg" alt="MISA-CA" width="96"> | MISA-CA | 🟡 Chưa test full | Bộ kết nối khởi tạo được trên máy thử, chưa thử USB MISA thật |
+| <img src="assets/ca-logos/mk-ca.png" alt="MK CA" width="96"> | MK CA | ⚪ Chưa có bộ đọc USB | |
+| <img src="assets/ca-logos/mobifone-ca.png" alt="MOBIFONE CA" width="96"> | MOBIFONE CA | 🟡 Chưa test full | Đã có gói từ liên kết trong tài liệu hãng; hai bộ kết nối khởi tạo được, chưa có USB thật |
+| <img src="assets/ca-logos/nc-ca.png" alt="NC-CA" width="96"> | NC-CA | 🟡 Chưa test full | |
+| <img src="assets/ca-logos/newtel-ca.png" alt="Newtel-CA" width="96"> | Newtel-CA | 🟡 Chưa test full | Có cho USB đời V6 |
+| <img src="assets/ca-logos/one-ca.jpg" alt="ONE-CA" width="96"> | ONE-CA | 🟡 Chưa test full | |
+| <img src="assets/ca-logos/safe-ca.jpg" alt="Safe-CA" width="96"> | Safe-CA | 🟡 Chưa test full | Có cho USB đời V1, V2 |
+| <img src="assets/ca-logos/smartsign.png" alt="SmartSign" width="96"> | SmartSign / Vina-CA | 🟡 Chưa test full | Có cho USB đời V6 |
+| <img src="assets/ca-logos/trustca.png" alt="TrustCA" width="96"> | TrustCA | 🟡 Chưa test full | Chưa đủ cho mọi đời USB |
+| <img src="assets/ca-logos/viettel-ca.jpg" alt="Viettel-CA" width="96"> | Viettel-CA | 🟡 Chưa test full | Một số bộ kết nối đời V0–V5 khởi tạo được; không xác nhận ký trên USB thật |
+| <img src="assets/ca-logos/vnpay-ca.png" alt="VNPAY-CA" width="96"> | VNPAY-CA | ⚪ Chưa có bộ đọc USB | Đã phân tích phần mềm ký, chưa có bộ kết nối USB độc lập |
+| <img src="assets/ca-logos/vnpt-ca.jpg" alt="VNPT-CA" width="96"> | VNPT-CA | 🟡 Chưa test full | Đã thấy bộ kết nối Mac có Intel và ARM64 khi phân tích tĩnh; chưa chạy thử trên Mac |
+| <img src="assets/ca-logos/winca.png" alt="WINCA" width="96"> | WINCA | 🟡 Chưa test full | Lấy từ đại lý, chưa đối chiếu với hãng |
 
 Bảng này chỉ nói về **USB ký số**. Thẻ ký số (smart card), SIM ký số và ký từ xa qua điện thoại là những loại khác, chưa được xét ở đây.
 
 ## USB của tôi không thuộc nhóm 🟢, tôi làm gì?
 
-1. **Cần ký ngay:** hỏi nhà cung cấp chữ ký số xin tệp `.p12` hoặc `.pfx`, rồi nhập vào MacSigner ở mục **Chứng thư số → Nhập P12/PFX**.
-2. **Muốn thử USB:** cài phần mềm USB token bản cho Mac của hãng (nếu hãng có), cắm USB và mở MacSigner. Biểu tượng USB ở góc trên bên phải sẽ cho biết MacSigner có nhận được USB hay không.
+1. **Đã có tệp ký hợp lệ:** nhập ở mục **Chứng thư số → Nhập P12/PFX**. Đây là luồng riêng, không phải cách chuyển mọi USB thành tệp ký.
+2. **Muốn thử USB:** cần bản MacSigner có bộ đọc tương thích đi kèm. Hiện bản thử đóng gói E-CA/CA2 chỉ dành cho Windows; không áp dụng cho Mac M2. Biểu tượng đầu đọc USB không chứng minh đã đọc được chứng thư.
 3. **Giúp dự án:** báo kết quả bạn thử được theo hướng dẫn ở [cuối trang](#bạn-có-usb-ký-số-và-muốn-giúp).
 
 ## MacSigner làm gì và không làm gì với USB của bạn
@@ -75,7 +75,7 @@ Bảng này chỉ nói về **USB ký số**. Thẻ ký số (smart card), SIM k
 ## Câu hỏi thường gặp
 
 **Có cần cài thêm phần mềm gì không?**
-Tùy hãng. Với USB nhóm 🟢 thì không cần cài gì, cắm vào là dùng. Với USB nhóm 🟡, bạn cần cài phần mềm USB token (driver) của chính hãng đã bán USB cho bạn; MacSigner tự tìm phần mềm đó sau khi cài, bạn không cần chỉ đường dẫn. Trình duyệt web không tự đọc được USB; nó chỉ chuyển yêu cầu ký sang cho MacSigner.
+Mục tiêu là MacSigner có sẵn bộ đọc, không bắt bạn cài trình quản lý token riêng. Bản build thử Windows ngày 21/10/2026 đã đóng gói bộ kết nối E-CA/CA2 ACE và worker phù hợp; hai bộ kết nối khởi tạo được nhưng lần thử gói mới không thấy token, chưa test full ký hoặc máy sạch. Bản macOS/M2 chưa có bộ đọc độc lập hoàn chỉnh cho hai dòng này. Nhãn 🟢 chỉ xác nhận đã đọc chứng thư trên Windows trước đây, không có nghĩa mọi máy cắm vào là dùng. Các hãng khác chưa được tự động đóng gói chỉ vì đã tìm thấy bộ cài. Trình duyệt chuyển yêu cầu sang MacSigner, không tự đọc USB.
 
 **Tôi vừa gia hạn chữ ký số, MacSigner có tự dùng chữ ký mới không?**
 Không tự đổi. MacSigner thấy được chữ ký mới trên USB, nhưng bạn là người chọn dùng chữ ký nào. Chữ ký cũ không bị xóa.
@@ -203,6 +203,7 @@ Nguồn: [cổng dịch vụ công VGCA](https://dichvucong.ca.gov.vn/page/taita
 | Tính năng | Trạng thái | Điều kiện và giới hạn |
 | --- | --- | --- |
 | Tìm đầu đọc và USB | Có trong lõi | Nhận thiết bị không bảo đảm đã có thể ký |
+| Tự nhận E-CA / CA2 khi mở ứng dụng hoặc cắm USB | Có trong luồng dò | Tự tìm bộ kết nối có sẵn hoặc đi kèm và dùng worker đúng kiến trúc; không yêu cầu cài ứng dụng quản lý hãng khi bộ kết nối đã dùng được. Chưa đọc được USB không tự kết luận thiếu phần mềm hãng; không tự tải hoặc cài gói chưa được phê duyệt |
 | Quét khi cắm nhiều loại USB | Có trong lõi | Tiếp tục quét sau khe bị rút hoặc không được bộ kết nối nhận diện; không biến USB không tương thích thành USB được hỗ trợ; lỗi bộ kết nối nghiêm trọng vẫn được báo |
 | Chứng thư trùng serial giữa các USB/CA | Có trong adapter CTSIGN | Giữ riêng chứng thư khác dữ liệu thay vì ghi đè theo serial. Yêu cầu chỉ có serial bị từ chối khi có nhiều chứng thư khác nhau cùng khớp; cần chỉ nạp chứng thư muốn ký, không tự chọn CA hoặc khóa |
 | Đọc chứng thư không PIN | Có trong lõi; đã thử CA2 ACE và E-CA | Một số thiết bị có thể yêu cầu đăng nhập trước |
@@ -224,3 +225,13 @@ Nguồn: [cổng dịch vụ công VGCA](https://dichvucong.ca.gov.vn/page/taita
 | Windows | Đang triển khai và kiểm chứng | Phụ thuộc phiên bản OS, kiến trúc và thiết bị |
 | macOS / Linux | Chưa xác nhận theo từng CA | Chưa có ma trận kiểm chứng đầy đủ |
 | Nhiều yêu cầu ký đồng thời | Chưa bảo đảm thông lượng | Cần hoàn thiện điều phối phiên, cô lập lỗi và đo tải thực tế |
+
+### Giao thức VNPT-CA Plugin trên trình duyệt
+
+Đã khảo sát bản cài cục bộ 1.0.5.3 và [thư viện tích hợp trên website VNPT](https://kyso.vnpt-ca.vn/). Đây là giao thức khác ESIGN và CTSIGN, không chỉ là tên một loại USB.
+
+- Thư viện tích hợp kết nối WebSocket có TLS tới `localhost`, đường dẫn `/plugin`, thử các cổng 4433, 4434, 4435, 9201 và 9202.
+- Yêu cầu có `functionID`, `args`, `funcCallback` và `domain`; có các nhóm lấy chứng thư, ký hash, XML, PDF, CMS và chức năng phụ trợ.
+- Đã đối chiếu đọc phiên bản với ứng dụng hãng đang chạy: lệnh 11 trả `1.0.5.3*macsignerVersionProbe`, TLS được xác minh bằng kho tin cậy hệ thống, không dùng PIN. Lõi `vnpt::protocol` có bộ đọc yêu cầu và đóng/mở khung phản hồi cùng 6 kiểm thử; chưa phải listener hoặc backend ký VNPT.
+- Nhánh kiểm tra nâng cao đối chiếu chữ ký phản hồi bằng khóa công khai được nhà cung cấp chỉ định. Không giả phản hồi thành công, không bỏ bước xác thực và không sử dụng khóa riêng hoặc giấy phép của hãng.
+- Chưa có dịch vụ VNPT tương thích hoàn chỉnh trong MacSigner; chưa bật cổng, thay đổi ứng dụng hãng hoặc công bố tương thích website. Cần hoàn thiện TLS và ma trận lệnh trước khi có thể chạy như mô-đun thứ ba song song ESIGN/CTSIGN.

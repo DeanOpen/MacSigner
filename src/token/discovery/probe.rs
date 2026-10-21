@@ -10,6 +10,19 @@ use std::{
 };
 
 fn check_module_architecture(module: &Path) -> Result<(), Box<dyn Error>> {
+    if cfg!(target_os = "macos") {
+        let architectures = super::macho::architectures(&mut fs::File::open(module)?)?;
+        if !architectures
+            .iter()
+            .any(|cpu| super::macho::matches(*cpu, std::env::consts::ARCH))
+        {
+            return Err(format!(
+                "PKCS#11 architecture mismatch: MacSigner {}; module CPUs {architectures:x?}. An ARM64 process cannot load an Intel-only module; use a compatible connector or matching executable",
+                std::env::consts::ARCH
+            ).into());
+        }
+        return Ok(());
+    }
     if !cfg!(windows) {
         return Ok(());
     }

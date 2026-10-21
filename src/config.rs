@@ -46,11 +46,28 @@ impl Default for CtsignSettings {
 pub struct Settings {
     pub esign: EsignSettings,
     pub ctsign: CtsignSettings,
+    pub vnpt: VnptSettings,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct VnptSettings {
+    pub enabled: bool,
+    pub port: u16,
+}
+
+impl Default for VnptSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            port: crate::vnpt::protocol::PORTS[0],
+        }
+    }
 }
 
 impl Settings {
     pub fn validate(&self) -> Result<(), String> {
-        if self.esign.port == 0 || self.ctsign.port == 0 {
+        if self.esign.port == 0 || self.ctsign.port == 0 || self.vnpt.port == 0 {
             return Err("Cổng phải từ 1 đến 65535".into());
         }
         if self.esign.fallback_port == Some(0) {
@@ -69,6 +86,12 @@ impl Settings {
         ];
         if ports[2] == ports[0] || ports[2] == ports[1] {
             return Err("ESIGN và CTSIGN không được dùng chung cổng".into());
+        }
+        if ports.contains(&Some(self.vnpt.port)) {
+            return Err("VNPT không được dùng chung cổng với ESIGN hoặc CTSIGN".into());
+        }
+        if self.vnpt.enabled {
+            crate::vnpt::ensure_available()?;
         }
 
         Ok(())

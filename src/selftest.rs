@@ -64,6 +64,37 @@ impl Check {
 
 pub const ESIGN_FIXTURES: &str = include_str!("esign/data/legacy-writer-fixtures.json");
 pub const CTSIGN_VECTOR: &str = include_str!("../tests/fixtures/ctsign/dotnet-vector.json");
+
+pub fn vnpt() -> Vec<Check> {
+    let framing = crate::vnpt::protocol::unframe(
+        "1.0.5.3*macsignerVersionProbe",
+        "macsignerVersionProbe",
+    )
+    .map(|version| {
+        format!(
+            "Giải mã frame phiên bản {version}; kiểm tra dữ liệu mẫu, không phải kết nối máy chủ"
+        )
+    })
+    .map_err(|error| error.to_string());
+    vec![
+        Check::new("VNPT", "Khung phản hồi phiên bản", framing),
+        Check::skip(
+            "VNPT",
+            "Máy chủ WSS /plugin và TLS",
+            crate::vnpt::UNAVAILABLE_REASON,
+        ),
+        Check::skip(
+            "VNPT",
+            "Nhập PIN và ký qua giao thức VNPT",
+            "Chưa có backend ký VNPT; không gửi yêu cầu ký",
+        ),
+        Check::skip(
+            "VNPT",
+            "Xác thực thử thách của hãng",
+            "Không thay thế kiểm tra thử thách bằng phản hồi có mặt đơn giản",
+        ),
+    ]
+}
 pub const CTSIGN_CERT: &[u8] = include_bytes!("../tests/fixtures/ctsign/certificate.der");
 pub const CTSIGN_KEY: &str = include_str!("../tests/fixtures/ctsign/private-key.fixture");
 

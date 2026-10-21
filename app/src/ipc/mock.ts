@@ -1,6 +1,6 @@
 // Browser-only stand-in for the Tauri commands (UI development and previews).
 // Never used inside the desktop app.
-import type { ActivityEntry, CertList, Check, Preferences, Services, Settings, SignatureReport } from "./api";
+import type { ActivityEntry, CertList, Check, Preferences, Services, Settings, SignatureReport, ServiceName } from "./api";
 
 const certs: CertList = {
   readerStatus: "Đã nhận USB token: SecureMetric ST3Ace",
@@ -45,14 +45,16 @@ const certs: CertList = {
 };
 
 let services: Services = {
-  esign: { running: false, address: null, error: null },
-  ctsign: { running: true, address: "127.0.0.1:32101", error: null },
+  esign: { available: true, unavailableReason: null, running: false, address: null, error: null },
+  ctsign: { available: true, unavailableReason: null, running: true, address: "127.0.0.1:32101", error: null },
+  vnpt: { available: false, unavailableReason: "VNPT chưa có máy chủ WSS và backend ký; chế độ xem trước không mở cổng thật.", running: false, address: null, error: null },
   apiSigning: false,
 };
 
 let settings: Settings = {
   esign: { enabled: false, port: 8768, fallback_port: 8769, origins: ["https://thuedientu.gdt.gov.vn"] },
   ctsign: { enabled: true, port: 32101 },
+  vnpt: { enabled: false, port: 4433 },
 };
 
 let preferences: Preferences = {
@@ -97,6 +99,7 @@ const checks: Check[] = [
   { module: "ESIGN", name: "WebSocket: chặn origin lạ", outcome: "pass", detail: "HTTP 403" },
   { module: "CTSIGN", name: "Vector chữ ký .NET", outcome: "pass", detail: "Trùng byte-for-byte" },
   { module: "CTSIGN", name: "API GetCert", outcome: "pass", detail: '{"status":200}' },
+  { module: "VNPT", name: "Máy chủ WSS và ký", outcome: "skip", detail: "Chưa sẵn sàng; không có máy chủ VNPT thật trong bản xem trước" },
   { module: "CHUNG", name: "Kho chứng thư Windows", outcome: "skip", detail: "Chế độ xem trước" },
 ];
 
@@ -134,16 +137,23 @@ export async function mock<T>(cmd: string, args?: Record<string, unknown>): Prom
       case "get_settings":
         return settings;
       case "save_settings":
+        if ((args?.settings as Settings).vnpt.enabled) throw new Error("VNPT chưa sẵn sàng");
         settings = args?.settings as Settings;
         return null;
       case "services_status":
         return services;
       case "set_service": {
-        const name = args?.name as "esign" | "ctsign";
+        const name = args?.name as ServiceName;
         const running = Boolean(args?.running);
+        if (name === "vnpt") {
+          if (running) throw new Error(services.vnpt.unavailableReason ?? "VNPT chưa sẵn sàng");
+          return services;
+        }
         services = {
           ...services,
           [name]: {
+            available: true,
+            unavailableReason: null,
             running,
             address: running ? `127.0.0.1:${settings[name].port}` : null,
             error: null,
@@ -151,6 +161,10 @@ export async function mock<T>(cmd: string, args?: Record<string, unknown>): Prom
         };
         return services;
       }
+      case "vnpt_diagnostics":
+        return [...new Set([settings.vnpt.port, 4433, 4434, 4435, 9201, 9202])].map((port) => ({
+          port, state: "unknown", detail: "Chế độ xem trước không kiểm tra cổng thật.",
+        }));
       case "set_api_signing":
         services = { ...services, apiSigning: Boolean(args?.enabled) };
         return services;

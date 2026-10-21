@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "connectors": [
+    {
+      "id": "eca",
+      "platform": "windows",
+      "architecture": "x86",
+      "evidence": "certificates-read",
+      "files": [
+        { "name": "eca_csp11_v1.dll", "source": ".tools/ca-research/extracted/eca/$_2_/eca_csp11_v1.dll", "sha256": "dfb4c081899e6ece02ba47e10b7a3e6c85c057ab8beac3563c17eb1a7f93488c" },
+        { "name": "eca_csp11_v1_s.dll", "source": ".tools/ca-research/extracted/eca/$_2_/eca_csp11_v1_s.dll", "sha256": "3df383f4b0195620badc0bb9f5e1d86ebdb4975b60da4b910a26fee9b4af474f" },
+        { "name": "eca_csp11_v1.sig", "source": ".tools/ca-research/extracted/eca/$_2_/eca_csp11_v1.sig", "sha256": "cbf3417496b6a388ba0c6886f5c4f6519ecf163a3839a5174124af19b3ad3281" }
+      ]
+    },
+    {
+      "id": "ca2-ace",
+      "platform": "windows",
+      "architecture": "x86",
+      "evidence": "certificates-read",
+      "files": [
+        { "name": "ca2_ace_csp11.dll", "source": ".tools/ca-research/staged/ca2-ace-x86/ca2_ace_csp11.dll", "sha256": "468ce35dd5f8401ed00a7501c672a353d4edb446d4a3fe4db92d395e3c298f52" },
+        { "name": "ca2_ace_csp11_s.dll", "source": ".tools/ca-research/staged/ca2-ace-x86/ca2_ace_csp11_s.dll", "sha256": "3df383f4b0195620badc0bb9f5e1d86ebdb4975b60da4b910a26fee9b4af474f" },
+        { "name": "ca2_ace_csp11.sig", "source": ".tools/ca-research/staged/ca2-ace-x86/ca2_ace_csp11.sig", "sha256": "1bcd16c3abc330241d3b30f0a47315d844d5cc0fb070827691d2fa81ce486b4d" }
+      ]
+    }
+  ],
+  "workers": {
+    "windows_x86": {
+      "source": "src/token/worker/target/i686-pc-windows-gnu/release/macsigner-token-worker.exe",
+      "sha256": "9b81fbe02c42e1d19caa61d262e28f2a28f462e75a101480f6d54af07d57fb13"
+    }
+  }
+}
