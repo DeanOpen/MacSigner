@@ -43,7 +43,8 @@ function ServiceLine({ service, state, rail }: { service: keyof typeof serviceBr
   const { name, version } = serviceBrands[service];
   const tone = state?.running ? "ok" : state?.error ? "fail" : "neutral";
   const port = state?.address?.split(":")[1];
-  const title = `${name} ${version}: ${port ? `cổng ${port}` : (state?.error ?? "tắt")}`;
+  const unavailable = state?.available === false;
+  const title = `${name} ${version}: ${unavailable ? state.unavailableReason : port ? `cổng ${port}` : (state?.error ?? "tắt")}`;
   if (rail)
     return (
       <span title={title} className="relative grid size-6 place-items-center">
@@ -55,8 +56,8 @@ function ServiceLine({ service, state, rail }: { service: keyof typeof serviceBr
     <div className="flex items-center gap-2 text-xs" title={title}>
       <ServiceLogo service={service} className="size-5 shrink-0 object-contain" />
       <StatusDot tone={tone} />
-      <span className="font-medium">{name}</span>
-      <span className="ml-auto font-mono text-[11px] text-muted">{port ?? "tắt"}</span>
+      <span className="min-w-0 flex-1 truncate font-medium">{name}</span>
+      <span className="max-w-20 shrink-0 text-right font-mono text-[11px] leading-tight text-muted">{unavailable ? "chưa sẵn sàng" : port ?? "tắt"}</span>
     </div>
   );
 }
@@ -90,6 +91,7 @@ export function Sidebar({ rail }: { rail: boolean }) {
           {!rail && <div className="text-[11px] font-medium tracking-wide text-muted uppercase">Dịch vụ cục bộ</div>}
           <ServiceLine service="esign" state={services.data?.esign} rail={rail} />
           <ServiceLine service="ctsign" state={services.data?.ctsign} rail={rail} />
+          <ServiceLine service="vnpt" state={services.data?.vnpt} rail={rail} />
         </button>
         <NavLink item={settingsNav} rail={rail} />
       </div>

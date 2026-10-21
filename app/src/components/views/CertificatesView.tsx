@@ -209,7 +209,7 @@ function UnreadPanel({ reader, busy, onRescan }: { reader: Reader; busy: boolean
       />
       {!busy && (
         <div className="flex flex-wrap items-center justify-between gap-3 bg-warning-soft/40 px-4 py-3 text-[13px]">
-          <span>Máy này chưa có phần mềm token của nhà cung cấp chữ ký số. Cài phần mềm đó rồi bấm Tìm lại.</span>
+          <span>MacSigner tự tìm bộ kết nối có sẵn hoặc đi kèm ứng dụng, kể cả E-CA và CA2. Chưa đọc được chứng thư từ USB này; chưa thể kết luận máy thiếu phần mềm của hãng. Thử cắm lại USB hoặc bấm Tìm lại.</span>
           <Button size="sm" variant="secondary" onPress={onRescan}>
             <RefreshCw className="size-4" />
             Tìm lại
@@ -279,7 +279,7 @@ function TokenPanel({
 const supportOrder: Support[] = ["verified", "driver", "none"];
 const supportText: Record<Support, string> = { verified: "text-success", driver: "text-warning", none: "text-muted" };
 const supportHint: Record<Support, string> = {
-  verified: "Đã đọc chứng thư trên USB thật",
+  verified: "Đã đọc chứng thư trên USB thật trên Windows; chưa xác nhận E-CA/CA2 trên macOS/M2",
   driver: "Đã có bộ kết nối, chưa thử trên USB thật",
   none: "Chưa có bộ kết nối USB",
 };
@@ -354,7 +354,7 @@ function CaDirectory({ inUse }: { inUse: Set<string> }) {
         ))}
       </div>
       <p className="text-xs text-muted">
-        <span className="font-medium text-success">Đã hỗ trợ</span>: đã đọc chứng thư trên USB thật.{" "}
+        <span className="font-medium text-success">Đã đọc trên Windows</span>: đã đọc chứng thư trên USB thật trên máy thử; chưa xác nhận E-CA/CA2 trên macOS/M2.{" "}
         <span className="font-medium text-warning">Chưa test</span>: đã có bộ kết nối, chưa thử trên USB thật. Ký bằng PIN
         trên USB thật vẫn đang được kiểm chứng với mọi CA.
       </p>

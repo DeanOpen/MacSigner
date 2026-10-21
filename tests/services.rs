@@ -105,6 +105,44 @@ fn settings_round_trip_and_validation() {
 }
 
 #[test]
+fn vnpt_settings_are_backward_compatible_but_cannot_enable_an_unimplemented_service() {
+    let settings: Settings = serde_json::from_str(r#"{"ctsign":{"port":32101}}"#).unwrap();
+    assert_eq!(settings.vnpt.port, 4433);
+    assert!(!settings.vnpt.enabled);
+    assert!(settings.validate().is_ok());
+    let mut invalid = settings.clone();
+    invalid.vnpt.port = settings.esign.port;
+    assert!(invalid.validate().is_err());
+    invalid.vnpt.port = settings.esign.fallback_port.unwrap();
+    assert!(invalid.validate().is_err());
+    invalid.vnpt.port = settings.ctsign.port;
+    assert!(invalid.validate().is_err());
+    invalid.vnpt.port = 0;
+    assert!(invalid.validate().is_err());
+    invalid.vnpt.port = 4433;
+    invalid.vnpt.enabled = true;
+    assert!(
+        invalid
+            .validate()
+            .unwrap_err()
+            .contains("VNPT chưa sẵn sàng")
+    );
+}
+
+#[test]
+fn vnpt_selftest_does_not_claim_signing_or_transport_success() {
+    let checks = selftest::vnpt();
+    assert_eq!(checks.len(), 4);
+    assert_eq!(checks[0].outcome, Outcome::Pass);
+    assert!(
+        checks
+            .iter()
+            .skip(1)
+            .all(|check| check.outcome == Outcome::Skip)
+    );
+}
+
+#[test]
 fn sample_signing_works_for_each_module() {
     let esign = selftest::esign_sample_sign("Ký thử".as_bytes(), "ONLINE_XML_CER_001").unwrap();
     assert_eq!(esign["SUCCESS"], "TRUE");

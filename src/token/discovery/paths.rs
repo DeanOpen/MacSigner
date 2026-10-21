@@ -69,6 +69,50 @@ fn roots() -> Vec<(PathBuf, usize)> {
     roots
 }
 
+fn portable_roots(executable: &Path) -> Vec<PathBuf> {
+    let Some(directory) = executable.parent() else {
+        return Vec::new();
+    };
+    let mut roots = vec![directory.join("pkcs11")];
+    if directory.file_name().is_some_and(|name| name == "MacOS")
+        && let Some(contents) = directory.parent()
+        && contents.file_name().is_some_and(|name| name == "Contents")
+    {
+        roots.push(contents.join("Resources").join("pkcs11"));
+    }
+    roots
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn macos_application_roots(directory: &Path) -> Vec<(PathBuf, usize)> {
+    let Ok(entries) = fs::read_dir(directory) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter_map(|entry| {
+            let kind = entry.file_type().ok()?;
+            if !kind.is_dir() || kind.is_symlink() {
+                return None;
+            }
+            let name = entry.file_name().to_str()?.to_ascii_lowercase();
+            [
+                "token",
+                "pkcs11",
+                "ca2",
+                "nacencomm",
+                "e-ca",
+                "eca ",
+                "eca.",
+                "vnpt",
+            ]
+            .iter()
+            .any(|hint| name.contains(hint))
+            .then(|| (entry.path(), 7))
+        })
+        .collect()
+}
+
 #[cfg(not(windows))]
 fn registered_modules(found: &mut BTreeSet<PathBuf>) {
     let mut dirs = vec![
@@ -111,10 +155,10 @@ pub fn modules() -> Vec<PathBuf> {
             found.insert(path);
         }
     }
-    if let Ok(executable) = std::env::current_exe()
-        && let Some(directory) = executable.parent()
-    {
-        visit(&directory.join("pkcs11"), 4, true, &mut found);
+    if let Ok(executable) = std::env::current_exe() {
+        for directory in portable_roots(&executable) {
+            visit(&directory, 4, true, &mut found);
+        }
     }
     if let Some(paths) = std::env::var_os("MACSIGNER_PKCS11_MODULES") {
         for path in std::env::split_paths(&paths) {
@@ -126,6 +170,18 @@ pub fn modules() -> Vec<PathBuf> {
     for (root, depth) in roots() {
         visit(&root, depth, false, &mut found);
     }
+    #[cfg(target_os = "macos")]
+    {
+        let mut directories = vec![PathBuf::from("/Applications")];
+        if let Some(home) = std::env::var_os("HOME") {
+            directories.push(PathBuf::from(home).join("Applications"));
+        }
+        for directory in directories {
+            for (root, depth) in macos_application_roots(&directory) {
+                visit(&root, depth, true, &mut found);
+            }
+        }
+    }
     #[cfg(not(windows))]
     registered_modules(&mut found);
     found.into_iter().collect()
@@ -134,6 +190,61 @@ pub fn modules() -> Vec<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn macos_bundles_search_both_executable_and_resource_modules() {
+        let contents = PathBuf::from("apps").join("MacSigner.app").join("Contents");
+        assert_eq!(
+            portable_roots(&contents.join("MacOS").join("MacSigner")),
+            vec![
+                contents.join("MacOS").join("pkcs11"),
+                contents.join("Resources").join("pkcs11"),
+            ]
+        );
+        assert_eq!(
+            portable_roots(&PathBuf::from("apps").join("MacSigner")),
+            vec![PathBuf::from("apps").join("pkcs11")]
+        );
+    }
+
+    #[test]
+    fn macos_vendor_applications_are_discovered_without_scanning_every_app() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let directory = std::env::temp_dir().join(format!(
+            "macsigner-macos-apps-{}-{unique}",
+            std::process::id()
+        ));
+        fs::create_dir(&directory).unwrap();
+        for name in [
+            "ECA Token Manager.app",
+            "CA2 Ace Token Manager.app",
+            "Safari.app",
+        ] {
+            fs::create_dir(directory.join(name)).unwrap();
+        }
+        let found: BTreeSet<_> = macos_application_roots(&directory)
+            .into_iter()
+            .map(|(path, _)| path)
+            .collect();
+        assert_eq!(
+            found,
+            BTreeSet::from([
+                directory.join("ECA Token Manager.app"),
+                directory.join("CA2 Ace Token Manager.app"),
+            ])
+        );
+        for name in [
+            "ECA Token Manager.app",
+            "CA2 Ace Token Manager.app",
+            "Safari.app",
+        ] {
+            fs::remove_dir(directory.join(name)).unwrap();
+        }
+        fs::remove_dir(directory).unwrap();
+    }
 
     #[cfg(windows)]
     #[test]

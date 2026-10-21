@@ -95,6 +95,7 @@ pub fn run(initial_file: Option<String>) {
             commands::get_settings,
             commands::save_settings,
             commands::services_status,
+            commands::vnpt_diagnostics,
             commands::set_service,
             commands::set_api_signing,
             commands::get_preferences,

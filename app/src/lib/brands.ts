@@ -52,7 +52,7 @@ export const caBrands: Brand[] = [
 ];
 
 export const supportLabel: Record<Support, string> = {
-  verified: "Đã hỗ trợ",
+  verified: "Đã đọc (Windows)",
   driver: "Chưa test",
   none: "Chưa hỗ trợ",
 };

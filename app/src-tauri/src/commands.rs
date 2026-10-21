@@ -152,7 +152,11 @@ fn current_list(state: &AppState) -> CertList {
     }
     CertList {
         certificates,
-        reader_status: state.reader_status.lock().map(|s| s.clone()).unwrap_or_default(),
+        reader_status: state
+            .reader_status
+            .lock()
+            .map(|s| s.clone())
+            .unwrap_or_default(),
     }
 }
 
@@ -191,8 +195,14 @@ fn scan_tokens(state: &AppState) {
         Err(e) => format!("Không đọc được đầu đọc thẻ: {e}"),
     };
     let mut found = Vec::new();
+    let mut devices = Vec::new();
     if let Ok(list) = discovery::certificates() {
-        for cert in list["certificates"].as_array().map(Vec::as_slice).unwrap_or(&[]) {
+        devices = list["tokens"].as_array().cloned().unwrap_or_default();
+        for cert in list["certificates"]
+            .as_array()
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
+        {
             let (Some(module), Some(slot), Some(id), Some(der)) = (
                 cert["module"].as_str(),
                 cert["slot"].as_u64(),
@@ -214,7 +224,6 @@ fn scan_tokens(state: &AppState) {
     if let Ok(mut tokens) = state.tokens.lock() {
         *tokens = found;
     }
-    let devices = discovery::tokens()["tokens"].as_array().cloned().unwrap_or_default();
     if let Ok(mut d) = state.token_devices.lock() {
         *d = devices;
     }
@@ -226,7 +235,10 @@ fn scan_tokens(state: &AppState) {
 /// Certificates offered for a browser signing request: those `accepts` allows
 /// (valid now, matching the serial / MST the page asked for). Tokens are
 /// scanned only when nothing loaded so far qualifies.
-pub(crate) fn browser_candidates(state: &AppState, accepts: impl Fn(&[u8]) -> bool) -> Vec<CertDto> {
+pub(crate) fn browser_candidates(
+    state: &AppState,
+    accepts: impl Fn(&[u8]) -> bool,
+) -> Vec<CertDto> {
     let allowed = |state: &AppState| -> Vec<String> {
         let mut ders: Vec<Vec<u8>> = state
             .signing
@@ -293,7 +305,11 @@ pub async fn import_certificate(
 /// token with the PIN typed in MacSigner. The store route goes through the vendor
 /// CSP, which picks a reader by itself and with two tokens plugged can prompt for
 /// (and fail on) the wrong one.
-pub(crate) fn ensure_loaded(state: &AppState, serial: &str, pin: Option<&str>) -> CmdResult<Vec<u8>> {
+pub(crate) fn ensure_loaded(
+    state: &AppState,
+    serial: &str,
+    pin: Option<&str>,
+) -> CmdResult<Vec<u8>> {
     let pin = pin.filter(|p| !p.is_empty());
     let loaded = state
         .signing
@@ -328,7 +344,8 @@ pub(crate) fn ensure_loaded(state: &AppState, serial: &str, pin: Option<&str>) -
         })
         .cloned()
         .ok_or("Không tìm thấy chứng thư đã chọn — hãy cắm token và bấm Tìm lại")?;
-    let identity = signing::open_token(&token.module, token.slot, &token.key_id, pin).map_err(err)?;
+    let identity =
+        signing::open_token(&token.module, token.slot, &token.key_id, pin).map_err(err)?;
     let der = identity.der().to_vec();
     state.signing.add(vec![identity]).map_err(err)?;
     Ok(der)
@@ -389,9 +406,10 @@ pub async fn sign_pdf(app: AppHandle, request: SignRequest) -> CmdResult<SignRes
         .certificate(request.cert_id.clone());
     let result = blocking(app, move |state| sign_pdf_now(state, request)).await;
     match &result {
-        Ok((signer, r)) => call
-            .signer(signer.as_str())
-            .finish(true, "OK", format!("Đã lưu {}", r.output)),
+        Ok((signer, r)) => {
+            call.signer(signer.as_str())
+                .finish(true, "OK", format!("Đã lưu {}", r.output))
+        }
         Err(e) => call.finish(false, "Lỗi", e.as_str()),
     }
     result.map(|(_, r)| r)
@@ -442,7 +460,10 @@ fn sign_pdf_now(state: &AppState, request: SignRequest) -> CmdResult<(String, Si
             .map_err(err)?
             .ok_or("Chứng thư không còn khả dụng")?;
         let reports = pdf::verify(&signed);
-        if !reports.last().is_some_and(|r| r.valid() && r.covers_whole_file) {
+        if !reports
+            .last()
+            .is_some_and(|r| r.valid() && r.covers_whole_file)
+        {
             return Err("Chữ ký vừa tạo không vượt qua bước tự kiểm tra; tệp chưa được lưu".into());
         }
         std::fs::write(&output, signed).map_err(err)?;
@@ -512,6 +533,8 @@ pub fn save_settings(state: State<'_, AppState>, settings: Settings) -> CmdResul
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServiceDto {
+    available: bool,
+    unavailable_reason: Option<String>,
     running: bool,
     address: Option<String>,
     error: Option<String>,
@@ -522,22 +545,29 @@ pub struct ServiceDto {
 pub struct ServicesDto {
     esign: ServiceDto,
     ctsign: ServiceDto,
+    vnpt: ServiceDto,
     api_signing: bool,
 }
 
 fn service_dto(status: Status) -> ServiceDto {
     match status {
         Status::Running(a) => ServiceDto {
+            available: true,
+            unavailable_reason: None,
             running: true,
             address: Some(a.to_string()),
             error: None,
         },
         Status::Stopped => ServiceDto {
+            available: true,
+            unavailable_reason: None,
             running: false,
             address: None,
             error: None,
         },
         Status::Failed(e) => ServiceDto {
+            available: true,
+            unavailable_reason: None,
             running: false,
             address: None,
             error: Some(e),
@@ -549,6 +579,13 @@ fn services(state: &AppState) -> CmdResult<ServicesDto> {
     Ok(ServicesDto {
         esign: service_dto(state.esign.lock().map_err(err)?.status()),
         ctsign: service_dto(state.ctsign.lock().map_err(err)?.status()),
+        vnpt: ServiceDto {
+            available: false,
+            unavailable_reason: Some(macsigner::vnpt::UNAVAILABLE_REASON.into()),
+            running: false,
+            address: None,
+            error: None,
+        },
         api_signing: state.signing.api_signing_enabled.load(Ordering::SeqCst),
     })
 }
@@ -559,7 +596,11 @@ pub fn services_status(state: State<'_, AppState>) -> CmdResult<ServicesDto> {
 }
 
 #[tauri::command]
-pub fn set_service(state: State<'_, AppState>, name: String, running: bool) -> CmdResult<ServicesDto> {
+pub fn set_service(
+    state: State<'_, AppState>,
+    name: String,
+    running: bool,
+) -> CmdResult<ServicesDto> {
     let settings = state.settings.lock().map_err(err)?.clone();
     match (name.as_str(), running) {
         ("esign", true) => {
@@ -570,9 +611,21 @@ pub fn set_service(state: State<'_, AppState>, name: String, running: bool) -> C
             state.ctsign.lock().map_err(err)?.start(&settings.ctsign)?;
         }
         ("ctsign", false) => state.ctsign.lock().map_err(err)?.stop(),
+        ("vnpt", true) => macsigner::vnpt::ensure_available()?,
+        ("vnpt", false) => {}
         _ => return Err(format!("Dịch vụ không hợp lệ: {name}")),
     }
     services(&state)
+}
+
+#[tauri::command]
+pub async fn vnpt_diagnostics(
+    state: State<'_, AppState>,
+) -> CmdResult<Vec<macsigner::vnpt::diagnostics::PortStatus>> {
+    let port = state.settings.lock().map_err(err)?.vnpt.port;
+    tauri::async_runtime::spawn_blocking(move || macsigner::vnpt::diagnostics::ports(port))
+        .await
+        .map_err(err)?
 }
 
 #[tauri::command]
@@ -669,15 +722,21 @@ pub struct CheckDto {
 #[tauri::command]
 pub async fn run_selftest(app: AppHandle, module: String) -> CmdResult<Vec<CheckDto>> {
     blocking(app, move |state| {
+        if !["all", "esign", "ctsign", "vnpt"].contains(&module.as_str()) {
+            return Err(format!("Mô-đun không hợp lệ: {module}"));
+        }
         let settings = state.settings.lock().map_err(err)?.clone();
         let mut checks = Vec::new();
-        if module != "ctsign" {
+        if module == "all" || module == "esign" {
             let live = selftest::live_address(&state.esign.lock().map_err(err)?.status());
             checks.extend(selftest::esign(&settings.esign, live));
         }
-        if module != "esign" {
+        if module == "all" || module == "ctsign" {
             let live = selftest::live_address(&state.ctsign.lock().map_err(err)?.status());
             checks.extend(selftest::ctsign(&state.signing, live));
+        }
+        if module == "all" || module == "vnpt" {
+            checks.extend(selftest::vnpt());
         }
         Ok(checks
             .into_iter()
@@ -731,12 +790,19 @@ pub async fn sample_sign(
                 state
                     .signing
                     .with_identity(&serial, |identity| {
-                        macsigner::esign::legacy::sign_request(&request, &der, true, |payloads, alg| {
-                            payloads
-                                .iter()
-                                .map(|p| identity.sign(p, alg).map_err(|e| e.to_string().into()))
-                                .collect()
-                        })
+                        macsigner::esign::legacy::sign_request(
+                            &request,
+                            &der,
+                            true,
+                            |payloads, alg| {
+                                payloads
+                                    .iter()
+                                    .map(|p| {
+                                        identity.sign(p, alg).map_err(|e| e.to_string().into())
+                                    })
+                                    .collect()
+                            },
+                        )
                         .map_err(|e| anyhow::anyhow!(e.to_string()))
                     })
                     .map_err(err)?
@@ -815,7 +881,13 @@ pub fn token_devices(state: State<'_, AppState>) -> CmdResult<Vec<TokenDevice>> 
                 c
             })
             .collect();
-        let text = |k: &str| d[k].as_str().unwrap_or("").trim_end_matches('\0').trim().to_owned();
+        let text = |k: &str| {
+            d[k].as_str()
+                .unwrap_or("")
+                .trim_end_matches('\0')
+                .trim()
+                .to_owned()
+        };
         out.push(TokenDevice {
             label: text("label"),
             manufacturer: text("manufacturer"),

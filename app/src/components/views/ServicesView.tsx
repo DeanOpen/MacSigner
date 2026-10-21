@@ -1,8 +1,8 @@
-import { Label, NumberField } from "@heroui/react";
-import { useQueryClient } from "@tanstack/react-query";
+import { Button, Label, NumberField } from "@heroui/react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Power, RefreshCcw, ShieldCheck } from "lucide-react";
-import type { ReactNode } from "react";
-import { api, type ServiceState, type Settings } from "../../ipc/api";
+import { useEffect, useState, type ReactNode } from "react";
+import { api, type ServiceName, type ServiceState, type Settings } from "../../ipc/api";
 import { keys, useSaveSettings, useServiceMutation, useServices, useSettings } from "../../queries";
 import { Page } from "../Page";
 import { ServiceLogo, serviceBrands } from "../ServiceBrand";
@@ -12,6 +12,7 @@ import { StatusChip } from "../ui/StatusChip";
 import { Toggle } from "../ui/Toggle";
 
 function status(s?: ServiceState) {
+  if (s?.available === false) return <StatusChip tone="neutral">Chưa sẵn sàng</StatusChip>;
   if (s?.running) return <StatusChip tone="ok">Đang chạy · {s.address}</StatusChip>;
   if (s?.error) return <StatusChip tone="fail" title={s.error}>{s.error}</StatusChip>;
   return <StatusChip tone="neutral">Đã tắt</StatusChip>;
@@ -30,7 +31,7 @@ function Service({
   onAutostart,
   children,
 }: {
-  id: "esign" | "ctsign";
+  id: ServiceName;
   title: string;
   desc: string;
   state?: ServiceState;
@@ -42,6 +43,16 @@ function Service({
   onAutostart: (v: boolean) => void;
   children?: ReactNode;
 }) {
+  const [draftPort, setDraftPort] = useState(port);
+  useEffect(() => setDraftPort(port), [port]);
+  const commitPort = () => {
+    if (!Number.isInteger(draftPort) || draftPort < 1 || draftPort > 65535) {
+      setDraftPort(port);
+      toast.error("Cổng không hợp lệ", "Cổng phải là số nguyên từ 1 đến 65535.");
+      return;
+    }
+    if (draftPort !== port) onPort(draftPort);
+  };
   return (
     <Panel>
       <div className="flex items-center gap-4 bg-surface-secondary/40 px-4 py-4">
@@ -52,29 +63,33 @@ function Service({
           <div className="text-sm font-semibold">{title}</div>
           <div className="mt-1">{status(state)}</div>
         </div>
-        <Toggle label={`Bật ${title}`} isSelected={!!state?.running} isDisabled={busy} onChange={onToggle} />
+        <Toggle label={`Bật ${title}`} isSelected={!!state?.running} isDisabled={busy || !state || !state.available} onChange={onToggle} />
       </div>
       <SettingRow icon={Power} title="Cổng" description={desc}>
         <NumberField
-          aria-label="Cổng"
-          key={`${id}-${port}`}
+          aria-label={`Cổng ${title}`}
           className="w-28"
+          isDisabled={busy}
           minValue={1}
           maxValue={65535}
-          defaultValue={port}
+          value={draftPort}
           formatOptions={{ useGrouping: false }}
-          onChange={(p) => {
-            if (p >= 1 && p <= 65535 && p !== port) onPort(p);
-          }}
+          onChange={setDraftPort}
         >
           <Label className="sr-only">Cổng</Label>
           <NumberField.Group>
-            <NumberField.Input className="text-center font-mono" />
+            <NumberField.Input
+              className="text-center font-mono"
+              onBlur={commitPort}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.currentTarget.blur();
+              }}
+            />
           </NumberField.Group>
         </NumberField>
       </SettingRow>
       <SettingRow icon={RefreshCcw} title="Tự bật khi mở MacSigner" description="Dịch vụ chạy ngay khi ứng dụng khởi động.">
-        <Toggle label="Tự bật" isSelected={autostart} onChange={onAutostart} />
+        <Toggle label="Tự bật" isSelected={autostart} isDisabled={busy || !state || !state.available} onChange={onAutostart} />
       </SettingRow>
       {children}
     </Panel>
@@ -87,13 +102,14 @@ export function ServicesView() {
   const save = useSaveSettings();
   const toggle = useServiceMutation();
   const qc = useQueryClient();
+  const diagnostics = useMutation({ mutationFn: api.vnptDiagnostics });
   const s = settings.data;
   const update = (next: Settings) =>
     save.mutate(next, {
-      onSuccess: () => toast.ok("Đã lưu", "Cổng mới áp dụng khi bật lại dịch vụ."),
+      onSuccess: () => toast.ok("Đã lưu", "Cấu hình áp dụng khi dịch vụ sẵn sàng và được bật lại."),
       onError: (e) => toast.error("Cài đặt không hợp lệ", e),
     });
-  const setRunning = (name: "esign" | "ctsign", running: boolean) =>
+  const setRunning = (name: ServiceName, running: boolean) =>
     toggle.mutate({ name, running }, { onError: (e) => toast.error("Không bật được dịch vụ", e) });
 
   return (
@@ -107,7 +123,7 @@ export function ServicesView() {
             state={services.data?.esign}
             port={s.esign.port}
             autostart={s.esign.enabled}
-            busy={toggle.isPending}
+            busy={toggle.isPending || save.isPending}
             onToggle={(v) => setRunning("esign", v)}
             onPort={(port) => update({ ...s, esign: { ...s.esign, port } })}
             onAutostart={(enabled) => update({ ...s, esign: { ...s.esign, enabled } })}
@@ -119,7 +135,7 @@ export function ServicesView() {
             state={services.data?.ctsign}
             port={s.ctsign.port}
             autostart={s.ctsign.enabled}
-            busy={toggle.isPending}
+            busy={toggle.isPending || save.isPending}
             onToggle={(v) => setRunning("ctsign", v)}
             onPort={(port) => update({ ...s, ctsign: { ...s.ctsign, port } })}
             onAutostart={(enabled) => update({ ...s, ctsign: { ...s.ctsign, enabled } })}
@@ -131,6 +147,47 @@ export function ServicesView() {
                 onChange={(v) => api.setApiSigning(v).then((d) => qc.setQueryData(keys.services, d))}
               />
             </SettingRow>
+          </Service>
+          <Service
+            id="vnpt"
+            title={`${serviceBrands.vnpt.name} · ${serviceBrands.vnpt.version}`}
+            desc="Dự kiến WSS /plugin; lưu cổng không mở máy chủ hoặc thay đổi trust store."
+            state={services.data?.vnpt}
+            port={s.vnpt.port}
+            autostart={s.vnpt.enabled}
+            busy={save.isPending || diagnostics.isPending}
+            onToggle={(running) => setRunning("vnpt", running)}
+            onPort={(port) => {
+              diagnostics.reset();
+              update({ ...s, vnpt: { ...s.vnpt, port } });
+            }}
+            onAutostart={(enabled) => update({ ...s, vnpt: { ...s.vnpt, enabled } })}
+          >
+            <div className="space-y-3 px-4 py-4 text-[13px]">
+              <p role="status" className="text-muted">
+                {services.data?.vnpt.unavailableReason ?? "Đang tải trạng thái VNPT…"}
+              </p>
+              <p className="text-muted">Cổng client gốc thử: <span className="font-mono">4433, 4434, 4435, 9201, 9202</span>. Đổi cổng chỉ có tác dụng nếu trang web cũng gọi cổng đó.</p>
+              <p className="text-muted">Đã đối chiếu khung giao thức và phản hồi phiên bản. Chưa hỗ trợ ký VNPT, TLS tin cậy hoặc xác thực thử thách của hãng; không dùng trạng thái ESIGN/CTSIGN để thay thế.</p>
+              <Button size="sm" variant="secondary" isDisabled={diagnostics.isPending || save.isPending} onPress={() => diagnostics.mutate()}>
+                <RefreshCcw className="size-4" />{diagnostics.isPending ? "Đang kiểm tra…" : "Kiểm tra cổng VNPT"}
+              </Button>
+              {diagnostics.error && <p role="alert" className="text-danger">{String(diagnostics.error)}</p>}
+              {diagnostics.data && (
+                <div aria-live="polite" className="space-y-2">
+                  <p className="text-xs text-muted">Kiểm tra TCP tại 127.0.0.1, không gửi lệnh ký hoặc PIN. Có kết nối không có nghĩa VNPT đang chạy.</p>
+                  {diagnostics.data.map((result) => (
+                    <div key={result.port} className="grid grid-cols-[3rem_6rem_minmax(0,1fr)] items-start gap-3 rounded-lg bg-surface-secondary/40 px-3 py-2">
+                      <span className="w-12 shrink-0 font-mono">{result.port}</span>
+                      <StatusChip tone={result.state === "open" ? "ok" : "neutral"}>
+                        {result.state === "open" ? "Có kết nối" : result.state === "closed" ? "Chưa mở" : "Chưa rõ"}
+                      </StatusChip>
+                      <span className="min-w-0 break-words text-muted">{result.detail}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </Service>
         </>
       )}

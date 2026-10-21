@@ -90,6 +90,8 @@ export interface SignatureReport {
 }
 
 export interface ServiceState {
+  available: boolean;
+  unavailableReason: string | null;
   running: boolean;
   address: string | null;
   error: string | null;
@@ -98,12 +100,22 @@ export interface ServiceState {
 export interface Services {
   esign: ServiceState;
   ctsign: ServiceState;
+  vnpt: ServiceState;
   apiSigning: boolean;
 }
 
 export interface Settings {
   esign: { enabled: boolean; port: number; fallback_port: number | null; origins: string[] };
   ctsign: { enabled: boolean; port: number };
+  vnpt: { enabled: boolean; port: number };
+}
+
+export type ServiceName = "esign" | "ctsign" | "vnpt";
+
+export interface PortStatus {
+  port: number;
+  state: "open" | "closed" | "unknown";
+  detail: string;
 }
 
 export interface Check {
@@ -175,12 +187,13 @@ export const api = {
   getSettings: () => invoke<Settings>("get_settings"),
   saveSettings: (settings: Settings) => invoke<void>("save_settings", { settings }),
   services: () => invoke<Services>("services_status"),
-  setService: (name: "esign" | "ctsign", running: boolean) =>
+  setService: (name: ServiceName, running: boolean) =>
     invoke<Services>("set_service", { name, running }),
+  vnptDiagnostics: () => invoke<PortStatus[]>("vnpt_diagnostics"),
   setApiSigning: (enabled: boolean) => invoke<Services>("set_api_signing", { enabled }),
   getPreferences: () => invoke<Preferences>("get_preferences"),
   savePreferences: (preferences: Preferences) => invoke<void>("save_preferences", { preferences }),
-  runSelftest: (module: "all" | "esign" | "ctsign") => invoke<Check[]>("run_selftest", { module }),
+  runSelftest: (module: "all" | ServiceName) => invoke<Check[]>("run_selftest", { module }),
   sampleSign: (module: "esign" | "ctsign", text: string, certId?: string, pin?: string) =>
     invoke<string>("sample_sign", { module, text, certId, pin }),
   offlineStatus: (path: string) => invoke<string>("offline_status", { path }),

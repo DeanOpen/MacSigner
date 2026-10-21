@@ -65,6 +65,7 @@ fn run_selftest() -> Result<(), String> {
     let settings = config::Settings::load(&config::default_path())?;
     let mut checks = selftest::esign(&settings.esign, None);
     checks.extend(selftest::ctsign(&SigningState::default(), None));
+    checks.extend(selftest::vnpt());
     let mut failed = 0;
     for check in &checks {
         let mark = match check.outcome {
