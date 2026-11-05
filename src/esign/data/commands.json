@@ -86,7 +86,7 @@
       ],
       "status": "implemented",
       "verified_on": [
-        "eSigner 1.0.9 XMLMultiSigner profile (NTDT_SIGN_CODE 01, 02, 03, 04, 05); Java XMLSignature.validate on a generated sample. Not a capture from the live portal."
+        "eSigner 1.0.9 XMLMultiSigner profile (NTDT_SIGN_CODE 01, 02, 03, 04, 05); Java XMLSignature.validate on a generated sample. Service registration (NTDT_CER_002) was accepted by the live e-tax portal on a Mac M1 with an I-CA token. Not a byte-for-byte capture from the official plugin."
       ],
       "conditional_strings": [
         {
