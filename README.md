@@ -47,7 +47,7 @@ Kết quả là người dùng Mac, từ kế toán, chủ doanh nghiệp đến
 |---|---|
 | Ký số tệp PDF: hợp đồng, công văn, tài liệu đính kèm hồ sơ | **Dùng được ngay** |
 | Kiểm tra chữ ký số trên tệp PDF nhận được | **Dùng được ngay** |
-| Ký kê khai thuế trực tuyến (thay cho plugin ký eSigner chỉ có trên Windows) | **Đã có, đang thử nghiệm.** MacSigner nhận các lệnh ký kê khai trực tuyến (`CER_001`, `ONLINE_XML_CER_001`, `ONLINE_SUBMIT_SIGNING_001`) từ trang thuế điện tử, hỏi bạn xác nhận rồi mới ký. Chữ ký trùng khớp từng byte với chữ ký mẫu của plugin gốc. Chưa được thử trên cổng thuế thật với USB token thật |
+| Ký kê khai thuế trực tuyến (thay cho plugin ký eSigner chỉ có trên Windows) | **Đã có, đang thử nghiệm.** MacSigner nhận các lệnh ký kê khai trực tuyến (`CER_001`, `ONLINE_XML_CER_001`, `ONLINE_SUBMIT_SIGNING_001`) và lệnh đăng ký / nộp thuế điện tử (`NTDT_CER_001`, `NTDT_CER_002`) từ trang thuế điện tử, hỏi bạn xác nhận rồi mới ký. Chữ ký của ba lệnh kê khai trùng khớp từng byte với chữ ký mẫu của plugin gốc. Lệnh `NTDT_*` ký XML theo cấu trúc XMLDSig của eSigner 1.0.9. Đăng ký dịch vụ (`NTDT_CER_002`) đã được cổng thuế điện tử chấp nhận trên Mac M1 với USB token I-CA. `NTDT_CER_001` và các lệnh kê khai chưa thử trên cổng thật. Chưa có mẫu byte bắt được từ plugin gốc cho `NTDT` |
 | Ký tờ khai thuế dạng tệp XML (kê khai ngoại tuyến) | **Đang phát triển** |
 | Ký hồ sơ trên cổng dịch vụ công | **Trong lộ trình** |
 | Ký cho trang hóa đơn điện tử dùng API tương thích CTSigningHub | Đã có API (`GetCert`, `SignHash`, `signpdf`) |
@@ -215,7 +215,7 @@ Cổng thuế điện tử và nhiều trang hóa đơn điện tử không tự
 
 | Dịch vụ | Địa chỉ mặc định | Dùng cho | Trạng thái |
 |---|---|---|---|
-| **ESIGN** | `ws://127.0.0.1:8768/plugin/sign` (dự phòng cổng 8769) | Cổng thuế điện tử, kê khai trực tuyến (thay cho plugin ký eSigner) | Ký `CER_001`, `ONLINE_XML_CER_001`, `ONLINE_SUBMIT_SIGNING_001` sau khi bạn xác nhận trong ứng dụng; chưa thử trên cổng thật |
+| **ESIGN** | `ws://127.0.0.1:8768/plugin/sign` (dự phòng cổng 8769) | Cổng thuế điện tử, kê khai trực tuyến và đăng ký dịch vụ (thay cho plugin ký eSigner) | Ký `CER_001`, `ONLINE_XML_CER_001`, `ONLINE_SUBMIT_SIGNING_001`, `NTDT_CER_001`, `NTDT_CER_002` sau khi bạn xác nhận. Đăng ký dịch vụ (`NTDT_CER_002`) đã được cổng thuế chấp nhận với token I-CA trên Mac M1; các lệnh còn lại chưa thử trên cổng thật |
 | **CTSIGN** | `http://127.0.0.1:32001` | Trang dùng API tương thích CTSigningHub, như một số trang hóa đơn điện tử | Đã có `GetCert`, `SignHash`, `signpdf` |
 
 Cả hai chỉ lắng nghe trên chính máy của bạn (`127.0.0.1`) và kiểm tra nguồn gọi (Origin, Host) trước khi xử lý. Với CTSIGN, trang web **chỉ ký được khi bạn bật** "Cho phép trang web ký qua API". Với ESIGN, **mỗi lần ký đều cần bạn xác nhận** trong hộp thoại của ứng dụng; nếu bạn từ chối hoặc không trả lời trong 2 phút, trang thuế nhận kết quả không thành công.
@@ -301,6 +301,7 @@ MacSigner đang ở giai đoạn **Alpha**: ký và kiểm tra PDF đã dùng đ
 | USB token trên macOS | Phụ thuộc nhà cung cấp có bộ kết nối cho Mac hay không |
 | API ký tương thích CTSigningHub (CTSIGN) | Đã có |
 | Lõi ký kê khai thuế trực tuyến (`CER_001`, `ONLINE_XML_CER_001`, `ONLINE_SUBMIT_SIGNING_001`) | Đã có, khớp từng byte với chữ ký mẫu của plugin gốc; thử được trong mục **Kiểm thử** |
+| Ký đăng ký dịch vụ và giấy nộp tiền (`NTDT_CER_002`, `NTDT_CER_001`) | Đã có. Ký XML theo cấu trúc của eSigner 1.0.9 (XMLDSig, XPath, `DateTimeStamp`). Đăng ký dịch vụ (`NTDT_CER_002`) đã được cổng thuế điện tử chấp nhận trên Mac M1 với token I-CA. `NTDT_CER_001` chưa thử trên cổng thật. Không khẳng định trùng từng byte với plugin gốc vì không có mẫu bắt được từ plugin |
 | Kê khai trực tuyến trên trang thuế điện tử (ESIGN) | Đã có, ký sau khi bạn xác nhận trong ứng dụng; đã kiểm thử với chứng thư thử nghiệm, chưa thử trên cổng thật với USB token thật |
 | Ký tờ khai thuế dạng tệp XML (XMLDSig) | Đang phát triển |
 | Ký hồ sơ trên cổng dịch vụ công | Trong lộ trình |

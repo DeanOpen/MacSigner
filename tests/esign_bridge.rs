@@ -309,6 +309,35 @@ fn declined_or_unsigned_requests_never_claim_success() {
 }
 
 #[test]
+fn ntdt_service_registration_signs_over_websocket_after_approval() {
+    let backend = TestBackend::new(Mode::Approve);
+    let (mut service, address) = start(Some(backend.clone()));
+    let serial = backend.sample.serial().to_owned();
+    let xml = STANDARD
+        .encode(br#"<DKY_DICHVU><TTIN_DANGKY><MST>1234567890</MST></TTIN_DANGKY></DKY_DICHVU>"#);
+    let mut input = request("NTDT_CER_002", &format!("@{xml}"), &serial);
+    input["NTDT_SIGN_CODE"] = json!("01");
+    input["PIN_CODE"] = json!("pin-not-stored");
+    let reply = send(address, &input);
+    assert_eq!(reply["SUCCESS"], "TRUE", "{reply}");
+    assert!(reply.get("PIN_CODE").is_none());
+    let body = reply["SIGNED_CONTENT"].as_str().unwrap();
+    let (_, gdt) = body.split_once('@').expect(body);
+    let signed = String::from_utf8(STANDARD.decode(gdt).unwrap()).unwrap();
+    assert!(signed.contains("<DateTimeStamp>"));
+    assert!(!signed.contains("pin-not-stored"));
+    let seen = backend.seen();
+    assert_eq!(seen.len(), 1);
+    assert_eq!(seen[0].code, "NTDT_CER_002");
+    assert_eq!(seen[0].count, 1);
+    assert_eq!(seen[0].pin.as_deref(), Some("pin-not-stored"));
+    let entries = activity::entries();
+    let text = serde_json::to_string(&entries).unwrap();
+    assert!(!text.contains("pin-not-stored"));
+    service.stop();
+}
+
+#[test]
 fn other_commands_and_invalid_requests_do_not_reach_the_backend() {
     let backend = TestBackend::new(Mode::Approve);
     let (mut service, address) = start(Some(backend.clone()));
@@ -369,7 +398,9 @@ fn capabilities_and_activity_summary_describe_the_bridge() {
             "CHECK_VERSION",
             "CER_001",
             "ONLINE_XML_CER_001",
-            "ONLINE_SUBMIT_SIGNING_001"
+            "ONLINE_SUBMIT_SIGNING_001",
+            "NTDT_CER_001",
+            "NTDT_CER_002"
         ])
     );
     assert_eq!(capabilities["real_portal_verified"], false);
