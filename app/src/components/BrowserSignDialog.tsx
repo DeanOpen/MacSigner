@@ -13,6 +13,8 @@ const commandLabels: Record<string, string> = {
   CER_001: "Ký xác thực chứng thư",
   ONLINE_XML_CER_001: "Ký tờ khai trực tuyến",
   ONLINE_SUBMIT_SIGNING_001: "Ký nộp hồ sơ trực tuyến",
+  NTDT_CER_001: "Ký giấy nộp tiền điện tử",
+  NTDT_CER_002: "Ký đăng ký dịch vụ thuế điện tử",
 };
 
 export function BrowserSignDialog() {

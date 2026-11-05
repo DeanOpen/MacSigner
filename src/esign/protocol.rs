@@ -104,7 +104,7 @@ pub struct Handled {
     pub signer: String,
 }
 
-/// Routes CER_001, ONLINE_XML_CER_001 and ONLINE_SUBMIT_SIGNING_001 to
+/// Routes the prepared-byte commands and NTDT_CER_001 / NTDT_CER_002 to
 /// `backend` (see `bridge`). CHECK_VERSION is handled locally; unsupported
 /// commands and signing requests without a backend answer FALSE.
 pub fn handle_with(bytes: &[u8], origin: &str, backend: Option<&dyn bridge::Backend>) -> Handled {
@@ -205,11 +205,13 @@ pub fn capabilities() -> Value {
         "rsa_pkcs_fallback": "host hashes and encodes DER DigestInfo; token performs private-key operation",
         "legacy_cli_prepared_byte_commands": bridge::SIGNING_COMMANDS,
         "legacy_commands_implemented": std::iter::once("CHECK_VERSION")
-            .chain(bridge::SIGNING_COMMANDS.iter().copied()).collect::<Vec<_>>(),
+            .chain(bridge::SIGNING_COMMANDS.iter().copied())
+            .chain(bridge::NTDT_COMMANDS.iter().copied())
+            .collect::<Vec<_>>(),
         // Signing over the bridge needs a backend that asks the user: the desktop
         // app's WebSocket. Native messaging and headless `serve` answer FALSE.
         "legacy_commands_signing_transport": ["websocket-with-desktop-approval"],
-        "legacy_sha1_policy": "CER_001 only (SHA1withRSA as in the original plugin); ONLINE_* refuse SHA-1",
+        "legacy_sha1_policy": "CER_001 is SHA-1, as in the original plugin. ONLINE_* refuse SHA-1. NTDT_CER_001 and NTDT_CER_002 use the certificate's own SHA-1 or SHA-256 algorithm.",
         "legacy_commands_catalogued": catalog().commands.iter().map(|c| &c.code).collect::<Vec<_>>(),
         "declared_but_not_dispatched": catalog().declared_but_not_dispatched,
         "real_portal_verified": false,

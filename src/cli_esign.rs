@@ -39,8 +39,8 @@ sign-file prompts for a PIN and produces a raw RSA/SHA-256 signature.
 It does not produce a signed XML/PDF document. OUTPUT must not already exist.
 Browser requests never load module paths or perform raw signing. The native
 and websocket commands here answer FALSE to every signing command: browser
-signing (CER_001, ONLINE_XML_CER_001, ONLINE_SUBMIT_SIGNING_001) needs the
-approval prompt of the MacSigner app (app/).
+signing (CER_001, ONLINE_XML_CER_001, ONLINE_SUBMIT_SIGNING_001, NTDT_CER_001,
+NTDT_CER_002) needs the approval prompt of the MacSigner app (app/).
 WebSocket defaults to loopback 8768, falling back to 8769 if occupied.
 Native messaging writes only length-prefixed JSON to stdout.";
 
@@ -227,9 +227,14 @@ fn run_explicit(args: &[String]) -> Result<(), Box<dyn Error>> {
             // Validate before opening the module or asking for a token PIN.
             protocol::validate(&request)?;
             let code = request["CODE"].as_str().unwrap_or("");
+            let upper = code.to_ascii_uppercase();
             if !matches!(
-                code.to_ascii_uppercase().as_str(),
-                "CER_001" | "ONLINE_XML_CER_001" | "ONLINE_SUBMIT_SIGNING_001"
+                upper.as_str(),
+                "CER_001"
+                    | "ONLINE_XML_CER_001"
+                    | "ONLINE_SUBMIT_SIGNING_001"
+                    | "NTDT_CER_001"
+                    | "NTDT_CER_002"
             ) {
                 return Err("this legacy command is not supported by sign-request".into());
             }
@@ -237,12 +242,37 @@ fn run_explicit(args: &[String]) -> Result<(), Box<dyn Error>> {
             let id = pkcs11::decode_hex(&args[3])?;
             let ctx = pkcs11::open(Path::new(&args[1]))?;
             let cert = pkcs11::certificate_by_id(&ctx, slot, &id)?;
-            let response =
+            let response = if upper == "NTDT_CER_001" || upper == "NTDT_CER_002" {
+                // Validate the XML before opening a PIN prompt inside the signer.
+                crate::esign::ntdt::prepare(&request)?;
+                crate::esign::ntdt::sign_request(
+                    &request,
+                    &cert,
+                    &crate::esign::ntdt::now_stamp(),
+                    |payload, algorithm| {
+                        pkcs11::ensure_signing_supported(&ctx, slot, algorithm)?;
+                        let pin = AuthPin::new(rpassword::prompt_password("Token PIN: ")?.into());
+                        let signatures = pkcs11::sign_many(
+                            &ctx,
+                            slot,
+                            &id,
+                            pin,
+                            &[payload.to_vec()],
+                            algorithm,
+                        )?;
+                        signatures
+                            .into_iter()
+                            .next()
+                            .ok_or_else(|| "token returned no signature".into())
+                    },
+                )?
+            } else {
                 legacy::sign_request(&request, &cert, args.len() == 7, |payloads, algorithm| {
                     pkcs11::ensure_signing_supported(&ctx, slot, algorithm)?;
                     let pin = AuthPin::new(rpassword::prompt_password("Token PIN: ")?.into());
                     pkcs11::sign_many(&ctx, slot, &id, pin, payloads, algorithm)
-                })?;
+                })?
+            };
             let mut output = OpenOptions::new()
                 .write(true)
                 .create_new(true)

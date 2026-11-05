@@ -16,7 +16,7 @@
 // verifies it as such, so SHA-1 is allowed for CER_001 only. The ONLINE_*
 // commands sign with the certificate's own algorithm and refuse SHA-1.
 use crate::esign::{
-    legacy,
+    legacy, ntdt,
     online::{self, Algorithm},
 };
 use serde_json::{Value, json};
@@ -25,14 +25,22 @@ pub use zeroize::Zeroizing;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
-/// Commands this bridge signs; every other code keeps answering FALSE.
+/// Prepared-byte commands. NTDT commands sign XML and are listed separately.
 pub const SIGNING_COMMANDS: [&str; 3] =
     ["CER_001", "ONLINE_XML_CER_001", "ONLINE_SUBMIT_SIGNING_001"];
+
+/// XML signing commands used by nộp thuế điện tử / đăng ký dịch vụ.
+pub const NTDT_COMMANDS: [&str; 2] = ["NTDT_CER_001", "NTDT_CER_002"];
 
 pub fn is_signing_command(code: &str) -> bool {
     SIGNING_COMMANDS
         .iter()
+        .chain(NTDT_COMMANDS.iter())
         .any(|c| c.eq_ignore_ascii_case(code))
+}
+
+pub fn is_ntdt_command(code: &str) -> bool {
+    NTDT_COMMANDS.iter().any(|c| c.eq_ignore_ascii_case(code))
 }
 
 /// What a browser signing request asks for, without the data to sign.
@@ -58,7 +66,9 @@ impl KeyRequest {
         let checked = |field: &str| text(field).eq_ignore_ascii_case("true");
         let code = text("CODE").to_ascii_uppercase();
         Self {
-            count: if code == "ONLINE_SUBMIT_SIGNING_001" {
+            count: if is_ntdt_command(&code) {
+                ntdt::document_count(input)
+            } else if code == "ONLINE_SUBMIT_SIGNING_001" {
                 text("BASE64_VALUE").split(',').count()
             } else {
                 1
@@ -145,28 +155,38 @@ pub fn sign(input: &Value, origin: &str, backend: &dyn Backend) -> Result<Signed
         return Err("not a prepared-byte signing command".into());
     }
     // Reject malformed data before the user is asked for a certificate or PIN.
-    let values = input
-        .get("BASE64_VALUE")
-        .and_then(Value::as_str)
-        .unwrap_or("");
-    let values: Vec<&str> = if request.code == "ONLINE_SUBMIT_SIGNING_001" {
-        values.split(',').collect()
+    if is_ntdt_command(&request.code) {
+        ntdt::prepare(input)?;
     } else {
-        vec![values]
-    };
-    if values.len() > 100 {
-        return Err("invalid signing input count".into());
-    }
-    for value in values {
-        online::decode_input(value)?;
+        let values = input
+            .get("BASE64_VALUE")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let values: Vec<&str> = if request.code == "ONLINE_SUBMIT_SIGNING_001" {
+            values.split(',').collect()
+        } else {
+            vec![values]
+        };
+        if values.len() > 100 {
+            return Err("invalid signing input count".into());
+        }
+        for value in values {
+            online::decode_input(value)?;
+        }
     }
     let allow_sha1 = request.uses_sha1();
     let mut done: Option<Signed> = None;
     backend.with_key(&request, &mut |key| {
         let der = key.certificate();
-        let reply = legacy::sign_request(input, der, allow_sha1, |payloads, algorithm| {
-            payloads.iter().map(|p| key.sign(p, algorithm)).collect()
-        })?;
+        let reply = if is_ntdt_command(&request.code) {
+            ntdt::sign_request(input, der, &ntdt::now_stamp(), |payload, algorithm| {
+                key.sign(payload, algorithm)
+            })?
+        } else {
+            legacy::sign_request(input, der, allow_sha1, |payloads, algorithm| {
+                payloads.iter().map(|p| key.sign(p, algorithm)).collect()
+            })?
+        };
         done = Some(Signed {
             reply,
             certificate_der: der.to_vec(),

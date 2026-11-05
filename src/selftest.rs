@@ -315,9 +315,18 @@ fn esign_bridge(settings: &EsignSettings, origin: &str) -> Result<String, String
             return Err(format!("{code}: phản hồi không đúng: {text}"));
         }
     }
+    let xml = STANDARD
+        .encode(br#"<DKY_DICHVU><TTIN_DANGKY><MST>1234567890</MST></TTIN_DANGKY></DKY_DICHVU>"#);
+    let mut ntdt = esign_request("NTDT_CER_002", &format!("@{xml}"), &serial);
+    ntdt["NTDT_SIGN_CODE"] = json!("01");
+    let text = websocket(address, origin, &ntdt.to_string())?;
+    let reply: Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    if reply["SUCCESS"] != "TRUE" || reply["SIGNED_CONTENT"].as_str().is_none_or(str::is_empty) {
+        return Err(format!("NTDT_CER_002: phản hồi không đúng: {text}"));
+    }
     temp.stop();
     Ok(format!(
-        "{} ký và tự xác minh qua ws://{address}/plugin/sign (khóa TEST ONLY)",
+        "{} và NTDT_CER_002 ký và tự xác minh qua ws://{address}/plugin/sign (khóa TEST ONLY)",
         bridge::SIGNING_COMMANDS.join(", ")
     ))
 }
